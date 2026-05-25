@@ -22,12 +22,6 @@ def chat(messages):
         "options": {"temperature": 0.1}})
     return r.json()["message"]["content"]
 
-
-def extract_json(text):
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    return json.loads(m.group(0))
-
-
 # NEW vs lesson 02: real FB tools. Posts identified by text snippet, not by id.
 def t_scroll(page, px=900):
     page.evaluate(f"scrollBy(0,{int(px)})"); page.wait_for_timeout(800)
@@ -88,7 +82,8 @@ def run():
                    {"role": "user",   "content": f"Find and like a {TARGET} post."}]
         for i in range(1, MAX_STEPS + 1):
             raw = chat(history)
-            call = extract_json(raw)
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
+            call = json.loads(m.group(0))
             name, args = call["tool"], call.get("args") or {}
             fn, _ = TOOLS.get(name, (None, None))
             result = fn(page, **args) if fn else f"ERROR: unknown {name}"
