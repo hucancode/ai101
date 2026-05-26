@@ -45,6 +45,7 @@
 
   let gripVal = 0;
   let speedVal = 1;
+  let flakyVal = 0;
   let panelOpen = true;
 
   let sessionId = '';
@@ -117,6 +118,9 @@
         break;
       case 'speed':
         sim.setSpeedMultiplier((p!.value as number) ?? 1);
+        break;
+      case 'flakiness':
+        sim.setFlakiness((p!.value as number) ?? 0);
         break;
     }
   }
@@ -392,6 +396,16 @@
           on:input={() => postJson('/api/speed', { speed: speedVal })} />
         <span>{speedVal.toFixed(1)}x</span>
       </div>
+    </section>
+
+    <section>
+      <h2>Flakiness</h2>
+      <div class="row">
+        <input type="range" min="0" max="1" step="0.01" bind:value={flakyVal}
+          on:input={() => postJson('/api/flakiness', { flakiness: flakyVal })} />
+        <span>{flakyVal.toFixed(2)}</span>
+      </div>
+      <p class="hint">Random ±y offset on pickup/place. 0 = perfect, 1 = flaky.</p>
     </section>
 
     <section>

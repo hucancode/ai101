@@ -34,6 +34,7 @@ export class MujocoSim {
     paused = false;
     gripperActuatorId = -1;
     speedMultiplier = 1;
+    flakiness = 0;
 
     private userIkEnabled = false;
     private firstIkEnable = true;
@@ -366,6 +367,11 @@ export class MujocoSim {
 
     setSpeedMultiplier(speed: number) {
         this.speedMultiplier = speed;
+    }
+
+    setFlakiness(value: number) {
+        this.flakiness = Math.max(0, Math.min(1, value));
+        this.sequenceAnimator.flakiness = this.flakiness;
     }
 
     setViewerMode(enabled: boolean) {
