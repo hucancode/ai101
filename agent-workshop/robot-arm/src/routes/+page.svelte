@@ -10,6 +10,7 @@
   import PanelRightOpen from 'lucide-svelte/icons/panel-right-open';
   import type { Command, RobotState } from '$lib/robot/types';
   import type { MujocoSim as MujocoSimType } from '$lib/robot/MujocoSim';
+  import type { SceneMode } from '$lib/robot/RobotLoader';
 
   type CubeSummary = {
     name: string;
@@ -47,6 +48,12 @@
   let speedVal = 1;
   let flakyVal = 0;
   let panelOpen = true;
+
+  let sceneMode: SceneMode = 'standard';
+  let sceneReloading = false;
+  const SCENE_MODES: SceneMode[] = ['clean', 'standard', 'cluttered', 'chaos', 'impossible'];
+  let mujocoModule: unknown = null;
+  let MujocoSimCtor: typeof import('$lib/robot/MujocoSim').MujocoSim | null = null;
 
   let sessionId = '';
   let isLeader = false;
@@ -90,7 +97,6 @@
       case 'move_to': {
         const v = new THREE.Vector3(p!.x as number, p!.y as number, p!.z as number);
         sim.moveIkTargetTo(v, (p!.duration as number) ?? 1500);
-        sim.setIkEnabled(true);
         break;
       }
       case 'pickup': {
@@ -219,24 +225,59 @@
     });
   }
 
+  async function buildSim(mode: SceneMode) {
+    if (!MujocoSimCtor || !mujocoModule) throw new Error('sim deps not loaded');
+    sim = new MujocoSimCtor(container, mujocoModule as never);
+    await sim.init((m) => (loadStatus = m), mode);
+    sim.renderSys.setDarkMode(darkMode);
+    sim.setIkEnabled(false);
+    ikGizmo = false;
+    pickGizmo = false;
+    loadStatus = '';
+    sim.setViewerMode(!isLeader);
+  }
+
+  async function reloadSim(mode: SceneMode) {
+    if (sceneReloading) return;
+    sceneReloading = true;
+    try {
+      loadStatus = `Loading ${mode} scene...`;
+      sim?.dispose();
+      sim = null;
+      while (container?.firstChild) container.removeChild(container.firstChild);
+      await buildSim(mode);
+    } catch (e) {
+      loadError = (e as Error).message || 'scene reload failed';
+    } finally {
+      sceneReloading = false;
+    }
+  }
+
+  async function selectScene(mode: SceneMode) {
+    if (mode === sceneMode || sceneReloading) return;
+    sceneMode = mode;
+    try { localStorage.setItem('sceneMode', mode); } catch (_) { /* ignore */ }
+    await reloadSim(mode);
+  }
+
   onMount(async () => {
     sessionId = genSessionId();
     try {
       const { MujocoSim } = await import('$lib/robot/MujocoSim');
+      MujocoSimCtor = MujocoSim;
       const loadMujoco = (await import('mujoco_wasm')).default as (cfg?: unknown) => Promise<unknown>;
       loadStatus = 'Loading MuJoCo WASM...';
-      const mod = await loadMujoco({
+      mujocoModule = await loadMujoco({
         locateFile: (path: string) => path.endsWith('.wasm') ? 'https://unpkg.com/mujoco-js@0.0.7/dist/mujoco_wasm.wasm' : path
       });
 
-      sim = new MujocoSim(container, mod as never);
-      await sim.init((m) => (loadStatus = m));
-      sim.renderSys.setDarkMode(darkMode);
-      sim.setIkEnabled(false);
-      loadStatus = '';
+      try {
+        const stored = localStorage.getItem('sceneMode') as SceneMode | null;
+        if (stored && SCENE_MODES.includes(stored)) sceneMode = stored;
+      } catch (_) { /* ignore */ }
 
       await claimLease();
-      sim.setViewerMode(!isLeader);
+      await buildSim(sceneMode);
       openStream();
 
       pushTimer = window.setInterval(pushState, 200);
@@ -381,7 +422,22 @@
     </section>
 
     <section>
-      <h2>Gripper</h2>
+      <h2>Scene</h2>
+      <div class="scene-grid">
+        {#each SCENE_MODES as mode}
+          <button
+            class="scene-btn"
+            class:on={sceneMode === mode}
+            on:click={() => selectScene(mode)}
+            disabled={sceneReloading}
+          >{mode}</button>
+        {/each}
+      </div>
+      {#if sceneReloading}<p class="hint">Reloading...</p>{/if}
+    </section>
+
+    <section>
+      <h2>Gripper Aperture</h2>
       <div class="row">
         <input type="range" min="0" max="255" bind:value={gripVal}
           on:input={() => postJson('/api/ctrl', { gripper: gripVal })} />
@@ -614,4 +670,21 @@
   }
   .tray-head .count { color: #94a3b8; font-size: 0.7rem; }
   .cubes { list-style: none; padding: 0; margin: 0; }
+
+  .scene-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.3rem;
+  }
+  .scene-btn {
+    background: #1e293b;
+    color: #cbd5e1;
+    border: 1px solid #334155;
+    text-transform: capitalize;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.5rem;
+  }
+  .scene-btn:hover:not(:disabled) { background: #334155; color: #f1f5f9; }
+  .scene-btn.on { background: #4f46e5; color: white; border-color: #6366f1; }
+  .scene-btn.on:hover:not(:disabled) { background: #6366f1; }
 </style>

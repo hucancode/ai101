@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { IkSystem } from './IkSystem';
 import { RenderSystem } from './RenderSystem';
-import { RobotLoader } from './RobotLoader';
+import { RobotLoader, SceneMode } from './RobotLoader';
 import { SequenceAnimator } from './SequenceAnimator';
 import { BodyInfo, GeomInfo, MujocoData, MujocoModel, MujocoModule, Tray, RobotState } from './types';
 import { getName } from './StringUtils';
@@ -37,7 +37,9 @@ export class MujocoSim {
     flakiness = 0;
 
     private userIkEnabled = false;
+    private programmaticIkActive = false;
     private firstIkEnable = true;
+    sceneMode: SceneMode = 'standard';
 
     viewerMode = false;
     private pendingExternalState: RobotState | null = null;
@@ -104,8 +106,9 @@ export class MujocoSim {
         this.pickupItems([p], [Date.now()], undefined, mode);
     }
 
-    async init(onProgress?: (msg: string) => void) {
-        const loader = new RobotLoader(this.mujoco);
+    async init(onProgress?: (msg: string) => void, sceneMode: SceneMode = 'standard') {
+        this.sceneMode = sceneMode;
+        const loader = new RobotLoader(this.mujoco, sceneMode);
         await loader.load(onProgress);
 
         try {
@@ -230,6 +233,7 @@ export class MujocoSim {
 
                 if (t >= 1.0) {
                     this.gizmoAnim.active = false;
+                    this.programmaticIkActive = false;
                 }
             }
 
@@ -260,7 +264,7 @@ export class MujocoSim {
     }
 
     private syncIkState() {
-        const shouldCalculate = this.userIkEnabled;
+        const shouldCalculate = this.userIkEnabled || this.programmaticIkActive;
         const shouldShowGizmo = this.userIkEnabled && !this.gizmoAnim.active && !this.sequenceAnimator.running;
 
         this.ikSys.setCalculating(shouldCalculate);
@@ -274,9 +278,7 @@ export class MujocoSim {
     }
 
     moveIkTargetTo(pos: THREE.Vector3, duration = 0) {
-        if (!this.userIkEnabled) {
-            this.setIkEnabled(true);
-        }
+        this.programmaticIkActive = true;
 
         const targetPos = new THREE.Vector3(pos.x, pos.y, pos.z);
         const targetRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI, 0, 0));
@@ -336,6 +338,7 @@ export class MujocoSim {
         if (!this.mjModel || !this.mjData) return;
         this.renderSys.clearErMarkers();
         this.gizmoAnim.active = false;
+        this.programmaticIkActive = false;
         this.sequenceAnimator.reset();
         this.mujoco.mj_resetData(this.mjModel, this.mjData);
         this.setInitialPose();
@@ -379,6 +382,7 @@ export class MujocoSim {
         if (enabled) {
             this.sequenceAnimator.reset();
             this.gizmoAnim.active = false;
+            this.programmaticIkActive = false;
             this.ikSys.setCalculating(false);
             this.ikSys.setGizmoVisible(false);
             this.ikSys.setTargetVisible(false);

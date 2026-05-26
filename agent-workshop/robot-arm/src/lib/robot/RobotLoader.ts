@@ -9,6 +9,8 @@ import { MujocoModule } from "./types";
 const SCENE_FILE = 'scene.xml';
 const BASE_URL = '/franka_emika_panda/';
 
+export type SceneMode = 'clean' | 'standard' | 'cluttered' | 'chaos' | 'impossible';
+
 /**
  * RobotLoader
  * Fetches the franka_emika_panda scene + meshes and stages them in MuJoCo's
@@ -17,9 +19,11 @@ const BASE_URL = '/franka_emika_panda/';
  */
 export class RobotLoader {
     private mujoco: MujocoModule;
+    private sceneMode: SceneMode;
 
-    constructor(mujocoInstance: MujocoModule) {
+    constructor(mujocoInstance: MujocoModule, sceneMode: SceneMode = 'standard') {
         this.mujoco = mujocoInstance;
+        this.sceneMode = sceneMode;
     }
 
     async load(onProgress?: (msg: string) => void): Promise<void> {
@@ -82,10 +86,16 @@ export class RobotLoader {
             '0.1 0.8 0.1 1', // Green
             '0.8 0.8 0.1 1'  // Yellow
         ];
-        const positions: { x: number, y: number }[] = [];
+
+        const cfg = this.sceneConfig();
+        const positions: { x: number, y: number, r: number }[] = [];
         let out = '';
 
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < cfg.count; i++) {
+            const half = cfg.randomSize
+                ? 0.012 + Math.random() * 0.023
+                : 0.02;
+            const minSep = (half * 2) ** 2 * 1.2;
             let x = 0, y = 0, valid = false, attempts = 0;
             while (!valid && attempts < 200) {
                 const minR = 0.35, maxR = 0.8;
@@ -97,18 +107,32 @@ export class RobotLoader {
                 if (Math.sqrt((x - 0.6) ** 2 + y * y) < 0.35) valid = false;
                 if (valid) {
                     for (const p of positions) {
-                        if ((p.x - x) ** 2 + (p.y - y) ** 2 < 0.004) { valid = false; break; }
+                        const sep = Math.max(minSep, (p.r + half) ** 2 * 1.2);
+                        if ((p.x - x) ** 2 + (p.y - y) ** 2 < sep) { valid = false; break; }
                     }
                 }
                 attempts++;
             }
             if (!valid) continue;
-            positions.push({ x, y });
+            positions.push({ x, y, r: half });
             const color = colors[i % 4];
-            out += `<body name="cube${i}" pos="${x.toFixed(3)} ${y.toFixed(3)} 0.02"><freejoint/><geom type="box" size="0.02 0.02 0.02" rgba="${color}" mass="0.05" friction="1.5 0.3 0.1" solref="0.01 1" solimp="0.95 0.99 0.001 0.5 2" condim="4"/></body>`;
+            const size = `${half.toFixed(4)} ${half.toFixed(4)} ${half.toFixed(4)}`;
+            const z = (half + 0.001).toFixed(4);
+            out += `<body name="cube${i}" pos="${x.toFixed(3)} ${y.toFixed(3)} ${z}"><freejoint/><geom type="box" size="${size}" rgba="${color}" mass="0.05" friction="1.5 0.3 0.1" solref="0.01 1" solimp="0.95 0.99 0.001 0.5 2" condim="4"/></body>`;
         }
         out += `<body name="stack_base" pos="0.6 0 0.0"><geom type="box" size="0.1 0.1 0.005" rgba="0.3 0.3 0.3 1"/></body>`;
         return out;
+    }
+
+    private sceneConfig(): { count: number; randomSize: boolean } {
+        switch (this.sceneMode) {
+            case 'clean':      return { count: 1,   randomSize: false };
+            case 'cluttered':  return { count: 60,  randomSize: false };
+            case 'chaos':      return { count: 40,  randomSize: true  };
+            case 'impossible': return { count: 200, randomSize: true  };
+            case 'standard':
+            default:           return { count: 20,  randomSize: false };
+        }
     }
 
     private scanDependencies(xmlString: string, currentFile: string, parser: DOMParser, downloaded: Set<string>, queue: string[]) {
