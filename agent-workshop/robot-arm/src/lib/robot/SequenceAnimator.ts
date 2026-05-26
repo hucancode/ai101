@@ -43,6 +43,9 @@ export class SequenceAnimator {
     
     private gripperVal = 0; // 0 = Open/Closed (dependent on model, usually 0=Closed, 255/0.08=Open)
 
+    // 'both' = pickup + place (default); 'pickup' = stop after lift; 'place' = skip pickup, drop currently-held cube
+    private mode: 'pickup' | 'place' | 'both' = 'both';
+
     // Callback to notify app of completion of a single pickup (passes Body ID or Marker ID)
     private onPickupComplete?: (id: number) => void;
     // Callback to notify app when the entire sequence is finished
@@ -64,20 +67,22 @@ export class SequenceAnimator {
      * Start the sequence.
      * @param targets Can be an array of body IDs (number[]) OR an object with { positions, markerIds } for blind mode.
      */
-    start(ikTarget: THREE.Object3D, mjData: MujocoData, ikSystem: IkSystem, 
-          targets?: { positions: THREE.Vector3[], markerIds: number[] } | number[], 
+    start(ikTarget: THREE.Object3D, mjData: MujocoData, ikSystem: IkSystem,
+          targets?: { positions: THREE.Vector3[], markerIds: number[] } | number[],
           onPickupComplete?: (id: number) => void,
-          onFinished?: () => void) {
-        
+          onFinished?: () => void,
+          mode: 'pickup' | 'place' | 'both' = 'both') {
+
         this.onPickupComplete = onPickupComplete;
         this.onFinished = onFinished;
-        
+        this.mode = mode;
+
         if (targets && !Array.isArray(targets) && 'positions' in targets) {
              // Static Positions Mode (ER/Blind)
              this.targetPositions = targets.positions;
              this.markerIds = targets.markerIds;
              this.useLivePosition = false;
-             this.cubeIds = []; 
+             this.cubeIds = [];
         } else {
              // Default / ID mode
              this.useLivePosition = true;
@@ -88,19 +93,28 @@ export class SequenceAnimator {
              }
         }
 
-        // If `init` was called, `trayId` is set. 
+        // If `init` was called, `trayId` is set.
         if (this.trayId === -1) return; // No drop zone
 
-        // Safety check
-        if (this.useLivePosition && this.cubeIds.length === 0) return;
-        if (!this.useLivePosition && this.targetPositions.length === 0) return;
-        
-        this.running = true; 
-        this.step = 0; 
+        // Safety check — pickup-related modes need a target; place-only skips this
+        if (this.mode !== 'place') {
+            if (this.useLivePosition && this.cubeIds.length === 0) return;
+            if (!this.useLivePosition && this.targetPositions.length === 0) return;
+        } else {
+            // place-only operates on whatever is in the gripper; ensure at least one iteration
+            if (this.useLivePosition && this.cubeIds.length === 0) this.cubeIds = [0];
+            if (!this.useLivePosition && this.targetPositions.length === 0) {
+                this.targetPositions = [new THREE.Vector3()];
+                this.markerIds = [0];
+            }
+        }
+
+        this.running = true;
+        this.step = this.mode === 'place' ? 8 : 0;
         this.curCubeIdx = 0;
         // NOTE: We do NOT reset droppedCount here. It persists across pickup batches.
-        
-        this.gripperVal = 0;
+
+        this.gripperVal = this.mode === 'place' ? 0 : 0;
         this.prepareStep(ikTarget, mjData, ikSystem);
     }
 
@@ -219,6 +233,11 @@ export class SequenceAnimator {
          const mul = 0.8;
          let useExplicitJoints = false;
 
+         // Mode-based short-circuit: pickup-only finishes after the lift (step 7 -> jump to home)
+         if (this.mode === 'pickup' && this.step === 8) {
+             this.step = 14;
+         }
+
          // THE SEQUENCE STATE MACHINE (Defines Cartesian Target)
          switch(this.step) {
             case 0: // Move above cube
@@ -251,8 +270,8 @@ export class SequenceAnimator {
                 this.duration=2*mul; this.targetPos.set(dropPos.x, dropPos.y, hoverZ); this.targetQuat.copy(downQuat); this.gripperVal=255; break;
             
             case 14: // Check next or Return Home
-                this.droppedCount++;
-                
+                if (this.mode !== 'pickup') this.droppedCount++;
+
                 // Notify completion for this item
                 if (this.onPickupComplete) {
                     if (this.useLivePosition) {
@@ -263,11 +282,12 @@ export class SequenceAnimator {
                 }
 
                 this.curCubeIdx++;
-                
-                // Check if more cubes
-                if ((this.useLivePosition && this.curCubeIdx < this.cubeIds.length) || 
-                    (!this.useLivePosition && this.curCubeIdx < this.targetPositions.length)) {
-                    this.step = 0;
+
+                // place-only handles one cube per invocation; pickup/both can chain across targets
+                if (this.mode !== 'place' &&
+                    ((this.useLivePosition && this.curCubeIdx < this.cubeIds.length) ||
+                     (!this.useLivePosition && this.curCubeIdx < this.targetPositions.length))) {
+                    this.step = this.mode === 'pickup' ? 0 : 0;
                     this.prepareStep(ikTarget, mjData, ikSystem);
                     return;
                 }

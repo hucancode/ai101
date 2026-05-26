@@ -96,6 +96,45 @@ Trays with cubes currently inside (AABB-XY + above-top test).
 }
 ```
 
+### `GET /api/gripping`
+Cube currently between the gripper jaws (nearest cube whose center is within
+its half-extents + tolerance of the end-effector). `null` if none.
+
+```json
+{
+  "gripping": {
+    "name": "cube0", "pos": [x,y,z], "quat": [w,x,y,z],
+    "size": [...], "rgba": [...], "geomType": 6
+  },
+  "gripper": 0,
+  "ee": [x,y,z],
+  "staleMs": 134
+}
+```
+
+### `GET /api/tray`
+Trays with their top-face area (m²) and cubes whose AABB is **fully inside**
+the tray (stricter than `/api/trays`, which allows tolerance overflow).
+
+```json
+{
+  "trays": [
+    {
+      "name": "stack_base",
+      "pos": [0.6,0,0], "quat": [1,0,0,0],
+      "size": [0.1,0.1,0.005],
+      "area": 0.04,
+      "geomType": 6,
+      "cubes": [
+        { "name": "cube0", "pos": [...], "quat": [...],
+          "size": [...], "rgba": [...], "geomType": 6 }
+      ]
+    }
+  ],
+  "staleMs": 134
+}
+```
+
 ### `POST /api/move_to`
 Move IK target end-effector to Cartesian point.
 

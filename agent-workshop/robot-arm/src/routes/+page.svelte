@@ -1,17 +1,42 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as THREE from 'three';
+  import Grip from 'lucide-svelte/icons/grip';
+  import MapPin from 'lucide-svelte/icons/map-pin';
+  import ArrowUpFromDot from 'lucide-svelte/icons/arrow-up-from-dot';
+  import ArrowDownToDot from 'lucide-svelte/icons/arrow-down-to-dot';
+  import Workflow from 'lucide-svelte/icons/workflow';
+  import PanelRightClose from 'lucide-svelte/icons/panel-right-close';
+  import PanelRightOpen from 'lucide-svelte/icons/panel-right-open';
   import type { Command, RobotState } from '$lib/robot/types';
   import type { MujocoSim as MujocoSimType } from '$lib/robot/MujocoSim';
+
+  type CubeSummary = {
+    name: string;
+    pos: [number, number, number];
+    quat: [number, number, number, number];
+    size: [number, number, number];
+    rgba: [number, number, number, number];
+    geomType: number;
+  };
+  type TraySummary = {
+    name: string;
+    pos: [number, number, number];
+    size: [number, number, number];
+    cubes: CubeSummary[];
+  };
 
   let container: HTMLDivElement;
   let sim: MujocoSimType | null = null;
   let loadStatus = 'Booting...';
   let loadError = '';
   let state: RobotState | null = null;
+  let gripping: CubeSummary | null = null;
+  let trays: TraySummary[] = [];
   let markerCounter = 1;
   let pushTimer: number | null = null;
   let leaseTimer: number | null = null;
+  let pollTimer: number | null = null;
   let darkMode = true;
   let ikGizmo = false;
   let pickGizmo = false;
@@ -20,6 +45,7 @@
 
   let gripVal = 0;
   let speedVal = 1;
+  let panelOpen = true;
 
   let sessionId = '';
   let isLeader = false;
@@ -42,9 +68,9 @@
     sim.setPickupGizmoVisible(pickGizmo);
   }
 
-  function pickupAtGizmo() {
+  function runAtGizmo(mode: 'pickup' | 'place' | 'both') {
     if (!sim || !isLeader) return;
-    sim.pickupAtGizmo();
+    sim.pickupAtGizmo(mode);
   }
 
   async function postJson(url: string, body?: unknown) {
@@ -114,6 +140,25 @@
         body: JSON.stringify(s)
       });
     } catch (_) { /* ignore */ }
+  }
+
+  async function pollScene() {
+    try {
+      const [gRes, tRes] = await Promise.all([
+        fetch('/api/gripping'),
+        fetch('/api/tray')
+      ]);
+      const g = await gRes.json();
+      const t = await tRes.json();
+      gripping = g.gripping ?? null;
+      trays = t.trays ?? [];
+    } catch (_) { /* transient */ }
+  }
+
+  function rgbCss(rgba: [number, number, number, number] | undefined) {
+    if (!rgba) return '#64748b';
+    const [r, g, b] = rgba;
+    return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
   }
 
   async function claimLease() {
@@ -192,6 +237,8 @@
 
       pushTimer = window.setInterval(pushState, 200);
       leaseTimer = window.setInterval(claimLease, 2000);
+      pollTimer = window.setInterval(pollScene, 500);
+      pollScene();
     } catch (e) {
       loadError = (e as Error).message || 'init failed';
     }
@@ -200,6 +247,7 @@
   onDestroy(() => {
     if (pushTimer) clearInterval(pushTimer);
     if (leaseTimer) clearInterval(leaseTimer);
+    if (pollTimer) clearInterval(pollTimer);
     if (eventSource) eventSource.close();
     if (isLeader && sessionId) {
       navigator.sendBeacon?.('/api/lease', new Blob(
@@ -228,6 +276,71 @@
 <div class="root">
   <div class="viewport" bind:this={container}></div>
 
+  <div class="hud">
+    <button
+      class="hud-btn"
+      class:on={ikGizmo}
+      on:click={toggleIkGizmo}
+      disabled={!isLeader}
+      title="Gripper Control"
+      aria-label="Gripper Control"
+    >
+      <Grip size={20} />
+    </button>
+    <button
+      class="hud-btn"
+      class:on={pickGizmo}
+      on:click={togglePickGizmo}
+      disabled={!isLeader}
+      title="Pickup Location Control"
+      aria-label="Pickup Location Control"
+    >
+      <MapPin size={20} />
+    </button>
+    <span class="hud-group">
+      <button
+        class="hud-btn"
+        on:click={() => runAtGizmo('pickup')}
+        disabled={!isLeader || !pickGizmo}
+        title="Pickup at Marker"
+        aria-label="Pickup at Marker"
+      >
+        <ArrowUpFromDot size={20} />
+      </button>
+      <button
+        class="hud-btn"
+        on:click={() => runAtGizmo('place')}
+        disabled={!isLeader}
+        title="Place Held Cube"
+        aria-label="Place Held Cube"
+      >
+        <ArrowDownToDot size={20} />
+      </button>
+      <button
+        class="hud-btn"
+        on:click={() => runAtGizmo('both')}
+        disabled={!isLeader || !pickGizmo}
+        title="Pickup and Place"
+        aria-label="Pickup and Place"
+      >
+        <Workflow size={20} />
+      </button>
+    </span>
+    <button
+      class="hud-btn panel-toggle"
+      on:click={() => (panelOpen = !panelOpen)}
+      title={panelOpen ? 'Hide panel' : 'Show panel'}
+      aria-label={panelOpen ? 'Hide panel' : 'Show panel'}
+      aria-pressed={panelOpen}
+    >
+      {#if panelOpen}
+        <PanelRightClose size={20} />
+      {:else}
+        <PanelRightOpen size={20} />
+      {/if}
+    </button>
+  </div>
+
   {#if loadStatus}
     <div class="overlay">
       <div class="card">
@@ -247,6 +360,7 @@
     </div>
   {/if}
 
+  {#if panelOpen}
   <aside class="panel">
     <header>
       <h1>Robot Arm</h1>
@@ -260,22 +374,6 @@
         </span>
         <span class="hint">{isLeader ? 'This tab runs physics' : 'Mirroring host tab'}</span>
       </div>
-    </section>
-
-    <section>
-      <h2>Gizmos</h2>
-      <div class="row">
-        <button class={ikGizmo ? 'on' : ''} on:click={toggleIkGizmo} disabled={!isLeader}>
-          Gripper Control
-        </button>
-        <button class={pickGizmo ? 'on' : ''} on:click={togglePickGizmo} disabled={!isLeader}>
-          Pickup Location Control
-        </button>
-      </div>
-      <button on:click={pickupAtGizmo} disabled={!isLeader || !pickGizmo}>Pickup</button>
-      {#if !isLeader}
-        <p class="hint">gizmo drag is host-only; viewer tabs use buttons or API</p>
-      {/if}
     </section>
 
     <section>
@@ -305,6 +403,46 @@
       </div>
     </section>
 
+    <section>
+      <h2>Gripping</h2>
+      {#if gripping}
+        <div class="item">
+          <span class="swatch" style="background:{rgbCss(gripping.rgba)}"></span>
+          <span class="name">{gripping.name}</span>
+          <span class="pos">{gripping.pos.map(v => v.toFixed(3)).join(', ')}</span>
+        </div>
+      {:else}
+        <p class="dim">nothing held</p>
+      {/if}
+    </section>
+
+    <section>
+      <h2>Trays</h2>
+      {#if trays.length === 0}
+        <p class="dim">no trays</p>
+      {:else}
+        {#each trays as tray}
+          <div class="tray">
+            <div class="tray-head">
+              <span class="name">{tray.name}</span>
+              <span class="count">{tray.cubes.length} cube{tray.cubes.length === 1 ? '' : 's'}</span>
+            </div>
+            {#if tray.cubes.length > 0}
+              <ul class="cubes">
+                {#each tray.cubes as c}
+                  <li class="item">
+                    <span class="swatch" style="background:{rgbCss(c.rgba)}"></span>
+                    <span class="name">{c.name}</span>
+                    <span class="pos">{c.pos.map(v => v.toFixed(2)).join(', ')}</span>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
+        {/each}
+      {/if}
+    </section>
+
     <section class="state">
       <h2>State</h2>
       {#if state}
@@ -329,6 +467,7 @@
       {/if}
     </section>
   </aside>
+  {/if}
 </div>
 
 <style>
@@ -347,6 +486,48 @@
   }
   .card h3 { margin: 0 0 0.5rem; }
   .card.error pre { color: #fca5a5; white-space: pre-wrap; }
+
+  .hud {
+    position: absolute;
+    top: 0.75rem; left: 0.75rem;
+    display: flex; gap: 0.4rem;
+    z-index: 6;
+  }
+  .hud-btn {
+    width: 2.25rem; height: 2.25rem;
+    display: inline-grid; place-items: center;
+    padding: 0;
+    background: rgba(15, 23, 42, 0.75);
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+  }
+  .hud-btn:hover:not(:disabled) {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: #475569;
+  }
+  .hud-btn.on {
+    background: #16a34a;
+    border-color: #22c55e;
+    color: white;
+  }
+  .hud-btn:disabled {
+    color: #64748b;
+    border-color: #1e293b;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .hud-group {
+    display: inline-flex;
+    gap: 1px;
+    background: #334155;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .hud-group .hud-btn { border-radius: 0; border: 0; }
+  .panel-toggle { margin-left: auto; }
 
   .panel {
     position: absolute; top: 0; right: 0; bottom: 0;
@@ -394,4 +575,29 @@
   .state details { margin-top: 0.5rem; }
   .state summary { cursor: pointer; font-size: 0.75rem; color: #94a3b8; }
   .dim { color: #64748b; font-size: 0.8rem; }
+
+  .item {
+    display: grid;
+    grid-template-columns: 0.9rem 1fr auto;
+    gap: 0.5rem;
+    align-items: center;
+    font-size: 0.75rem;
+    padding: 0.2rem 0;
+  }
+  .item .name { color: #e2e8f0; }
+  .item .pos { color: #64748b; font-variant-numeric: tabular-nums; }
+  .swatch {
+    width: 0.9rem; height: 0.9rem;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .tray { margin-bottom: 0.5rem; }
+  .tray-head {
+    display: flex; justify-content: space-between;
+    font-size: 0.75rem; color: #cbd5e1;
+    border-bottom: 1px dashed #334155;
+    padding-bottom: 0.2rem; margin-bottom: 0.2rem;
+  }
+  .tray-head .count { color: #94a3b8; font-size: 0.7rem; }
+  .cubes { list-style: none; padding: 0; margin: 0; }
 </style>

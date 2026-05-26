@@ -98,9 +98,9 @@ export class MujocoSim {
         return { x: p.x, y: p.y, z: p.z };
     }
 
-    pickupAtGizmo() {
+    pickupAtGizmo(mode: 'pickup' | 'place' | 'both' = 'both') {
         const p = this.pickupGizmo.position.clone();
-        this.pickupItems([p], [Date.now()]);
+        this.pickupItems([p], [Date.now()], undefined, mode);
     }
 
     async init(onProgress?: (msg: string) => void) {
@@ -295,12 +295,16 @@ export class MujocoSim {
         }
     }
 
-    pickupItems(positions: THREE.Vector3[], markerIds: number[], onFinished?: () => void) {
+    pickupItems(positions: THREE.Vector3[], markerIds: number[], onFinished?: () => void,
+                mode: 'pickup' | 'place' | 'both' = 'both') {
         if (this.sequenceAnimator && this.mjData) {
             this.ikSys.syncToSite(this.mjData);
-            positions.forEach((p, idx) => {
-                this.renderSys.addErMarker(p, `target_${idx}`, markerIds[idx]);
-            });
+            // place-only doesn't consult a pickup location, so skip marker placement
+            if (mode !== 'place') {
+                positions.forEach((p, idx) => {
+                    this.renderSys.addErMarker(p, `target_${idx}`, markerIds[idx]);
+                });
+            }
             this.sequenceAnimator.start(
                 this.ikSys.target,
                 this.mjData,
@@ -309,7 +313,8 @@ export class MujocoSim {
                 (markerId) => {
                     this.renderSys.removeMarkerById(markerId);
                 },
-                onFinished
+                onFinished,
+                mode
             );
             this.setIkEnabled(false);
         }
