@@ -80,7 +80,7 @@ def t_done(reason=""):
     DONE = True
     log.info(f"done: {reason}")
 
-def wait_idle(timeout=MOVE_MS, interval=0.2):
+def wait_idle(timeout=MOVE_MS*0.001, interval=0.2):
     """Poll /api/state until the arm finishes the queued action."""
     t0 = time.time()
     while time.time() - t0 < timeout:

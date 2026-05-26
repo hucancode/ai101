@@ -66,7 +66,7 @@ def t_pickup(x, y, z):
     requests.post(f"{ARM}/api/pickup",
                   json={"targets": [{"x": x, "y": y, "z": z}]}, timeout=10)
 
-def wait_idle(timeout=MOVE_MS, interval=0.2):
+def wait_idle(timeout=MOVE_MS*0.001, interval=0.2):
     t0 = time.time()
     while time.time() - t0 < timeout:
         s = requests.get(f"{ARM}/api/state", timeout=5).json()
