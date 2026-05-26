@@ -3,16 +3,11 @@
 ## Setup
 
 ```bash
-# Python deps
 uv sync
-uv run playwright install chromium    # only used as a fallback; we drive real Chrome
-# Real Chrome must be installed on the system; Playwright launches it via channel="chrome".
-
-# LLM backend (Ollama)
+uv run playwright install chromium
 ollama pull llama3.2:3b
 ollama serve
 ```
-
 
 ## Run
 
