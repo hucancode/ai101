@@ -1,5 +1,5 @@
 """Lesson 03 — bare tool loop (hard). Model drives set_grip + move_to primitives."""
-import os, json, time, logging, requests, boto3
+import os, json, time, requests, boto3
 from collections import deque
 
 ARM        = os.environ.get("ARM_URL", "http://localhost:3000")
@@ -9,7 +9,6 @@ Q          = os.environ.get("Q", "Pick up the red cube.")
 ACTION_LOG = int(os.environ.get("ACTION_LOG", "12"))
 MOVE_MS    = int(os.environ.get("MOVE_MS", "3000"))
 
-log = logging.getLogger("lesson03_hard")
 client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
 WORLD = {"workspace": None, "gripper_config": None, "cubes": None, "trays": None,
@@ -34,15 +33,14 @@ def t_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"value": int(va
 def t_move_to(x, y, z): requests.post(f"{ARM}/api/move_to",
     json={"x": float(x), "y": float(y), "z": float(z), "duration": MOVE_MS}, timeout=10)
 def t_done(reason=""):
-    global DONE; DONE = True; log.info(f"done: {reason}")
+    global DONE; DONE = True; print(f"done: {reason}")
 
-def wait_idle(timeout=MOVE_MS*0.001, interval=0.2):
-    t0 = time.time()
-    while time.time() - t0 < timeout:
-        s = requests.get(f"{ARM}/api/state", timeout=5).json()
-        if s.get("pending", 0) == 0 and not (s.get("state") or {}).get("sequenceRunning", False): return
+def wait_idle(interval=0.3):
+    streak = 0
+    while True:
+        streak = streak + 1 if requests.get(f"{ARM}/api/state", timeout=5).json()["state"].get("idle") else 0
+        if streak >= 2: return
         time.sleep(interval)
-    log.warning("wait_idle timeout")
 
 def spec(name, desc, props, required):
     return {"toolSpec": {"name": name, "description": desc, "inputSchema": {"json": {
@@ -63,7 +61,7 @@ def build_user():
     return f"task: {Q}\n{json.dumps({'WORLD': WORLD, 'RECENT_ACTIONS': list(ACTIONS)})}"
 
 def run():
-    log.warning(f"Q: {Q}")
+    print(f"Q: {Q}")
     while not DONE:
         refresh_world()
         r = client.converse(modelId=MODEL,
@@ -72,13 +70,13 @@ def run():
             toolConfig={"tools": TOOLS, "toolChoice": {"any": {}}},
             inferenceConfig={"maxTokens": 1024})
         tu = next((b["toolUse"] for b in r["output"]["message"]["content"] if "toolUse" in b), None)
-        if not tu: log.error("no tool call"); break
+        if not tu: print("no tool call"); break
         name, args = tu["name"], tu["input"]
-        log.warning(f"[{name}] {args}")
+        print(f"[{name}] {args}")
         DISPATCH[name](**args)
         if name != "done": wait_idle()
         ACTIONS.append({"tool": name, "args": args})
-    log.info("FINISHED ✅")
+    print("FINISHED ✅")
 
 if __name__ == "__main__":
     run()

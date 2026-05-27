@@ -1,16 +1,15 @@
 """Lesson 05 — lesson 04 + rule-based verification (easy)."""
-import os, json, time, logging, requests, boto3
+import os, json, time, requests, boto3
 from collections import deque
 
 ARM        = os.environ.get("ARM_URL", "http://localhost:3000")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-MODEL      = os.environ.get("MODEL", "us.amazon.nova-lite-v1:0")
+# MODEL      = os.environ.get("MODEL", "us.amazon.nova-pro-v1:0")
+MODEL      = os.environ.get("MODEL", "us.anthropic.claude-sonnet-4-6")
 Q          = os.environ.get("Q", "Pick up the red cube and put it on the tray.")
-LOGLEVEL   = os.environ.get("LOGLEVEL", "INFO").upper()
 MAX_STEPS  = int(os.environ.get("MAX_STEPS", "50"))
 ACTION_LOG = int(os.environ.get("ACTION_LOG", "12"))
 
-log = logging.getLogger("lesson05")
 client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
 WORLD = {"workspace": None, "cubes": None, "trays": None,
@@ -57,7 +56,7 @@ def build_user():
     return f"task: {Q}\n{json.dumps({'WORLD': WORLD, 'RECENT_ACTIONS': list(ACTIONS)})}"
 
 def run():
-    log.warning(f"Q: {Q} (max {MAX_STEPS} steps)")
+    print(f"Q: {Q} (max {MAX_STEPS} steps)")
     for step in range(1, MAX_STEPS + 1):
         refresh_world()
         if task_complete(): print("FINISHED ✅"); return
@@ -67,13 +66,13 @@ def run():
             toolConfig={"tools": TOOLS, "toolChoice": {"any": {}}},
             inferenceConfig={"maxTokens": 1024})
         tu = next((b["toolUse"] for b in r["output"]["message"]["content"] if "toolUse" in b), None)
-        if not tu: log.error("no tool call"); continue
+        if not tu: print("no tool call"); continue
         name, args = tu["name"], tu["input"]
-        log.warning(f"[{name}] {args}")
+        print(f"[{name}] {args}")
         DISPATCH[name](**args)
         wait_idle()
         ACTIONS.append({"tool": name, "args": args})
-    log.error(f"STEP LIMIT REACHED ({MAX_STEPS})")
+    print(f"STEP LIMIT REACHED ({MAX_STEPS})")
 
 if __name__ == "__main__":
     run()

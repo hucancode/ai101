@@ -1,4 +1,4 @@
-"""Lesson 05 — lesson 04 + rule-based verification (hard)."""
+"""Lesson 05 — lesson 04 + rule-based verification (medium)."""
 import os, json, time, requests, boto3
 from collections import deque
 
@@ -57,49 +57,9 @@ def clamp_to_workspace(x, y, z):
         print(f"  (clamped {(x, y, z)} -> {(cx, cy, cz)})")
     return cx, cy, cz
 
-def t_move_to(x, y, z):
-    x, y, z = clamp_to_workspace(float(x), float(y), float(z))
+def post_move_to(x, y, z):
     requests.post(f"{ARM}/api/move_to",
         json={"x": x, "y": y, "z": z, "duration": MOVE_DURATION}, timeout=10)
-
-HOVER_DZ = 0.12  # hover height above target
-
-def t_move_to_cube(i):
-    c = WORLD["cubes"][int(i)]
-    x, y, z = c["pos"]
-    t_move_to(x, y, z + HOVER_DZ)
-
-def t_move_to_tray(index=0):
-    if not WORLD.get("holding"):
-        return "not holding any cube; pick one up before moving to the tray"
-    t = WORLD["trays"][int(index)]
-    x, y, z = t["pos"]
-    t_move_to(x, y, z + HOVER_DZ)
-
-GRIP_OPEN, GRIP_CLOSE, GRIP_MIN_FOR_DIP = 255, 0, 130
-CLOSE_GRIP_MAX_DZ = 0.05  # ee must be within this height above a cube to actually grab it
-
-def t_open_grip():  t_set_grip(GRIP_OPEN)
-def t_close_grip():
-    t_set_grip(GRIP_CLOSE)
-    h = WORLD.get("hovering")
-    if not h:
-        return "closed grip but not above any cube; nothing grabbed"
-    if h["dz"] > CLOSE_GRIP_MAX_DZ:
-        return f"closed grip with ee {h['dz']}m above {h['cube']}; dip first to grab"
-
-def t_dip():
-    g = WORLD.get("gripper") or 0
-    if g < GRIP_MIN_FOR_DIP:
-        return f"gripper aperture {g} < {GRIP_MIN_FOR_DIP}; call open_grip before dip"
-    h = WORLD.get("hovering")
-    if not h:
-        return "not hovering over any cube; call move_to_cube first"
-    cube = next((c for c in (WORLD["cubes"] or []) if c["name"] == h["cube"]), None)
-    if not cube:
-        return f"cube {h['cube']} no longer in WORLD.cubes"
-    x, y, z = cube["pos"]
-    t_move_to(x, y, z)
 
 def wait_idle(interval=0.3):
     streak = 0
@@ -108,27 +68,59 @@ def wait_idle(interval=0.3):
         if streak >= 2: return
         time.sleep(interval)
 
+GRIP_OPEN, GRIP_CLOSE = 255, 0
+HOVER_DZ = 0.12  # hover height above target
+
+def t_move_to(x, y, z):
+    x, y, z = clamp_to_workspace(float(x), float(y), float(z))
+    post_move_to(x, y, z)
+    wait_idle()
+
+def t_pickup():
+    h = WORLD.get("hovering")
+    if not h:
+        return "not hovering over any cube; call move_to above a cube first"
+    cube = next((c for c in (WORLD["cubes"] or []) if c["name"] == h["cube"]), None)
+    if not cube:
+        return f"cube {h['cube']} no longer in WORLD.cubes"
+    t_set_grip(GRIP_OPEN); wait_idle()
+    x, y, z = cube["pos"]
+    post_move_to(x, y, z); wait_idle()
+    t_set_grip(GRIP_CLOSE); wait_idle()
+    post_move_to(x, y, z + HOVER_DZ); wait_idle()
+
+def t_place(index=0):
+    if not WORLD.get("holding"):
+        return "not holding any cube; pickup before place"
+    trays = WORLD.get("trays") or []
+    if not trays:
+        return "no trays available"
+    t = trays[int(index)]
+    x, y, z = t["pos"]
+    tx, ty, tz = clamp_to_workspace(x, y, z + HOVER_DZ)
+    post_move_to(tx, ty, tz); wait_idle()
+    t_set_grip(GRIP_OPEN); wait_idle()
+
 def spec(name, desc, props, required):
     return {"toolSpec": {"name": name, "description": desc, "inputSchema": {"json": {
         "type": "object", "properties": props, "required": required}}}}
 
+NUM = {"type": "number"}
 TOOLS = [
-    spec("move_to_cube", f"Hover above WORLD.cubes[i] (z + {HOVER_DZ}).",
-         {"i": {"type": "integer"}}, ["i"]),
-    spec("move_to_tray", f"Hover above WORLD.trays[index] (z + {HOVER_DZ}). index defaults to 0.",
+    spec("move_to", f"Move end-effector to (x, y, z). To target a cube, pass its pos with z + {HOVER_DZ} to hover above it.",
+         {"x": NUM, "y": NUM, "z": NUM}, ["x", "y", "z"]),
+    spec("pickup", "Open grip, dip onto the cube in WORLD.hovering, close grip, lift. Requires WORLD.hovering set.",
+         {}, []),
+    spec("place", "Move above WORLD.trays[index] and release. Requires WORLD.holding. index defaults to 0.",
          {"index": {"type": "integer"}}, []),
-    spec("open_grip",  "Open gripper.", {}, []),
-    spec("close_grip", "Close gripper.", {}, []),
-    spec("dip", f"Descend onto the cube in WORLD.hovering. Requires gripper >= {GRIP_MIN_FOR_DIP}.", {}, []),
 ]
-DISPATCH = {"move_to_cube": t_move_to_cube, "move_to_tray": t_move_to_tray,
-            "open_grip": t_open_grip, "close_grip": t_close_grip, "dip": t_dip}
+DISPATCH = {"move_to": t_move_to, "pickup": t_pickup, "place": t_place}
 
 def task_complete():
     return bool(WORLD["tray_contents"] and any(WORLD["tray_contents"].values())) and not WORLD["holding"]
 
-SYS = ("Drive a robot arm. Pickup: open_grip → move_to_cube → dip → close_grip → move_to_tray → "
-       "open_grip. Done when a cube is on a tray and gripper is empty. One tool per turn.")
+SYS = ("Drive a robot arm. Workflow: move_to (above a cube using its pos + hover) → pickup → place. "
+       "Done when a cube is on a tray and gripper is empty. One tool per turn.")
 
 def build_user():
     return f"task: {Q}\n{json.dumps({'WORLD': WORLD, 'RECENT_ACTIONS': list(ACTIONS)})}"
@@ -156,8 +148,6 @@ def run():
         if err:
             print(f"  (error: {err})")
             entry["error"] = err
-        else:
-            wait_idle()
         ACTIONS.append(entry)
     print(f"STEP LIMIT REACHED ({MAX_STEPS})")
 

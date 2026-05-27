@@ -1,16 +1,15 @@
 """Lesson 04 — lesson 03 + MAX_STEPS + tool-call validation feedback loop (easy)."""
-import os, json, time, logging, requests, boto3
+import os, json, time, requests, boto3
 from collections import deque
 
 ARM        = os.environ.get("ARM_URL", "http://localhost:3000")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-MODEL      = os.environ.get("MODEL", "us.amazon.nova-lite-v1:0")
+# MODEL      = os.environ.get("MODEL", "us.amazon.nova-pro-v1:0")
+MODEL      = os.environ.get("MODEL", "us.anthropic.claude-sonnet-4-6")
 Q          = os.environ.get("Q", "Pick up the red cube.")
-LOGLEVEL   = os.environ.get("LOGLEVEL", "INFO").upper()
 MAX_STEPS  = int(os.environ.get("MAX_STEPS", "30"))
 ACTION_LOG = int(os.environ.get("ACTION_LOG", "12"))
 
-log = logging.getLogger("lesson04")
 client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
 WORLD = {"workspace": None, "gripper_config": None, "cubes": None, "trays": None,
@@ -34,7 +33,7 @@ def refresh_world():
 def t_pickup(x, y, z): requests.post(f"{ARM}/api/pickup",
     json={"targets": [{"x": float(x), "y": float(y), "z": float(z)}]}, timeout=10)
 def t_done(reason=""):
-    global DONE; DONE = True; log.info(f"done: {reason}")
+    global DONE; DONE = True; print(f"done: {reason}")
 
 def wait_idle(interval=0.3):
     streak = 0
@@ -70,7 +69,7 @@ def validate(name, args):
     if extra: raise ValueError(f"{name} unknown args {extra}")
 
 def run():
-    log.warning(f"Q: {Q} (max {MAX_STEPS} steps)")
+    print(f"Q: {Q} (max {MAX_STEPS} steps)")
     for step in range(1, MAX_STEPS + 1):
         if DONE: break
         refresh_world()
@@ -81,20 +80,20 @@ def run():
             inferenceConfig={"maxTokens": 1024})
         tu = next((b["toolUse"] for b in r["output"]["message"]["content"] if "toolUse" in b), None)
         if not tu:
-            log.error("no tool call"); ACTIONS.append({"error": "no tool call"}); continue
+            print("no tool call"); ACTIONS.append({"error": "no tool call"}); continue
         name, args = tu["name"], tu["input"]
         try: validate(name, args)
         except ValueError as e:
-            log.error(f"[bad-call] {e}"); ACTIONS.append({"tool": name, "args": args, "error": str(e)}); continue
-        log.warning(f"[{name}] {args}")
+            print(f"[bad-call] {e}"); ACTIONS.append({"tool": name, "args": args, "error": str(e)}); continue
+        print(f"[{name}] {args}")
         try:
             DISPATCH[name](**args)
             if name != "done": wait_idle()
             ACTIONS.append({"tool": name, "args": args})
         except Exception as e:
-            log.error(f"[exec-fail] {name}: {e}")
+            print(f"[exec-fail] {name}: {e}")
             ACTIONS.append({"tool": name, "args": args, "error": str(e)})
-    log.info("FINISHED ✅") if DONE else log.error(f"STEP LIMIT REACHED ({MAX_STEPS})")
+    print("FINISHED ✅" if DONE else f"STEP LIMIT REACHED ({MAX_STEPS})")
 
 if __name__ == "__main__":
     run()

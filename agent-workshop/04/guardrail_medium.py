@@ -1,4 +1,4 @@
-"""Lesson 04 — high-level tools that execute without verification (hard)."""
+"""Lesson 04 — high-level pickup/place/move_to tools without verification (medium)."""
 import os, json, time, requests, boto3
 from collections import deque
 
@@ -31,30 +31,9 @@ def refresh_world():
 
 def t_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"value": int(value)}, timeout=10)
 
-def t_move_to(x, y, z):
+def post_move_to(x, y, z):
     requests.post(f"{ARM}/api/move_to",
-        json={"x": float(x), "y": float(y), "z": float(z), "duration": MOVE_DURATION}, timeout=10)
-
-HOVER_DZ = 0.12  # hover height above target
-
-def t_move_to_cube(i):
-    c = WORLD["cubes"][int(i)]
-    x, y, z = c["pos"]
-    t_move_to(x, y, z + HOVER_DZ)
-
-def t_move_to_tray(index=0):
-    t = WORLD["trays"][int(index)]
-    x, y, z = t["pos"]
-    t_move_to(x, y, z + HOVER_DZ)
-
-GRIP_OPEN, GRIP_CLOSE = 255, 0
-
-def t_open_grip():  t_set_grip(GRIP_OPEN)
-def t_close_grip(): t_set_grip(GRIP_CLOSE)
-
-def t_dip():
-    x, y, z = WORLD["ee"]
-    t_move_to(x, y, z - HOVER_DZ)
+        json={"x": x, "y": y, "z": z, "duration": MOVE_DURATION}, timeout=10)
 
 def wait_idle(interval=0.3):
     streak = 0
@@ -63,27 +42,46 @@ def wait_idle(interval=0.3):
         if streak >= 2: return
         time.sleep(interval)
 
+GRIP_OPEN, GRIP_CLOSE = 255, 0
+HOVER_DZ = 0.12  # hover height above target
+
+def t_move_to(x, y, z):
+    post_move_to(float(x), float(y), float(z))
+    wait_idle()
+
+def t_pickup():
+    x, y, _ = WORLD["ee"]
+    t_set_grip(GRIP_OPEN); wait_idle()
+    post_move_to(x, y, 0.0); wait_idle()
+    t_set_grip(GRIP_CLOSE); wait_idle()
+    post_move_to(x, y, HOVER_DZ); wait_idle()
+
+def t_place(index=0):
+    t = WORLD["trays"][int(index)]
+    x, y, z = t["pos"]
+    post_move_to(x, y, z + HOVER_DZ); wait_idle()
+    t_set_grip(GRIP_OPEN); wait_idle()
+
 def spec(name, desc, props, required):
     return {"toolSpec": {"name": name, "description": desc, "inputSchema": {"json": {
         "type": "object", "properties": props, "required": required}}}}
 
+NUM = {"type": "number"}
 TOOLS = [
-    spec("move_to_cube", f"Hover above WORLD.cubes[i] (z + {HOVER_DZ}).",
-         {"i": {"type": "integer"}}, ["i"]),
-    spec("move_to_tray", f"Hover above WORLD.trays[index] (z + {HOVER_DZ}). index defaults to 0.",
+    spec("move_to", f"Move end-effector to (x, y, z). To target a cube, pass its pos with z + {HOVER_DZ} to hover above it.",
+         {"x": NUM, "y": NUM, "z": NUM}, ["x", "y", "z"]),
+    spec("pickup", "Open grip, descend to floor, close grip, lift. Call after move_to above a cube.",
+         {}, []),
+    spec("place", "Move above WORLD.trays[index] and release. Call while holding a cube. index defaults to 0.",
          {"index": {"type": "integer"}}, []),
-    spec("open_grip",  "Open gripper.", {}, []),
-    spec("close_grip", "Close gripper.", {}, []),
-    spec("dip", f"Descend by {HOVER_DZ}m from current ee position.", {}, []),
 ]
-DISPATCH = {"move_to_cube": t_move_to_cube, "move_to_tray": t_move_to_tray,
-            "open_grip": t_open_grip, "close_grip": t_close_grip, "dip": t_dip}
+DISPATCH = {"move_to": t_move_to, "pickup": t_pickup, "place": t_place}
 
 def task_complete():
     return bool(WORLD["tray_contents"] and any(WORLD["tray_contents"].values())) and not WORLD["holding"]
 
-SYS = ("Drive a robot arm. Pickup: open_grip → move_to_cube → dip → close_grip → move_to_tray → "
-       "open_grip. Done when a cube is on a tray and gripper is empty. One tool per turn.")
+SYS = ("Drive a robot arm. Workflow: move_to (above a cube using its pos + hover) → pickup → place. "
+       "Done when a cube is on a tray and gripper is empty. One tool per turn.")
 
 def build_user():
     return f"task: {Q}\n{json.dumps({'WORLD': WORLD, 'RECENT_ACTIONS': list(ACTIONS)})}"
@@ -103,7 +101,6 @@ def run():
         name, args = tu["name"], tu["input"]
         print(f"[{name}] {args}")
         DISPATCH[name](**args)
-        wait_idle()
         ACTIONS.append({"tool": name, "args": args})
     print(f"STEP LIMIT REACHED ({MAX_STEPS})")
 
