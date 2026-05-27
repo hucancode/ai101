@@ -8,16 +8,15 @@ client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
 def weather(city=""):
     print(f"Fetching weather for {city or 'your location'}...")
-    r = requests.get(f"https://wttr.in/{city}", params={"format": 4},
-                     headers={"User-Agent": "curl/8"}, timeout=10)
+    r = requests.get(f"https://wttr.in/{city}", params={"format": 4})
     return r.text.strip()
 
-def spec(name, desc, props, required):
+def spec(name, desc, props={}, required=[]):
     return {"toolSpec": {"name": name, "description": desc, "inputSchema": {"json": {
         "type": "object", "properties": props, "required": required}}}}
 
 TOOLS = [
-    spec("weather", "Weather for a city. If no city is given, uses the user's current location.",  {"city": {"type": "string"}}, []),
+    spec("weather", "Weather for a city. If no city is given, uses the user's current location.",  {"city": {"type": "string"}}),
 ]
 DISPATCH = {"weather": weather}
 
@@ -26,7 +25,9 @@ def run(user_msg):
         messages=[{"role": "user", "content": [{"text": user_msg}]}],
         toolConfig={"tools": TOOLS}, inferenceConfig={"maxTokens": 1024})
     for b in r["output"]["message"]["content"]:
-        if "toolUse" not in b: continue
+        if "toolUse" not in b:
+           print(f"{b["text"]}")
+           continue
         t = b["toolUse"]
         print(f"MODEL: {t['name']}({t['input']})")
         print(f"RESULT: {DISPATCH[t['name']](**t['input'])}\n")

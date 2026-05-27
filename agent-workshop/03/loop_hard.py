@@ -1,61 +1,72 @@
-"""Lesson 03 — bare tool loop (hard). Model drives set_grip + move_to primitives."""
+"""Lesson 03 — bare tool loop (hard). Model drives open/close_grip + dip + move_to_cube/tray."""
 import os, json, time, requests, boto3
 from collections import deque
 
 ARM        = os.environ.get("ARM_URL", "http://localhost:3000")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 MODEL      = os.environ.get("MODEL", "us.amazon.nova-lite-v1:0")
-Q          = os.environ.get("Q", "Pick up the red cube.")
-ACTION_LOG = int(os.environ.get("ACTION_LOG", "12"))
-MOVE_MS    = int(os.environ.get("MOVE_MS", "3000"))
+Q          = os.environ.get("Q", "Pick up the red cube and put it on the tray.")
 
 client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+WORLD, ACTIONS, DONE = {}, deque(maxlen=12), False
 
-WORLD = {"workspace": None, "gripper_config": None, "cubes": None, "trays": None,
-         "ee": None, "gripper": None, "holding": None}
-ACTIONS = deque(maxlen=ACTION_LOG)
-DONE = False
+MOVE_MS = 3000
+GRIP_OPEN, GRIP_CLOSE = 255, 0
+HOVER_DZ = 0.12
 
 def refresh_world():
-    ws = requests.get(f"{ARM}/api/workspace", timeout=10).json()
-    WORLD["workspace"], WORLD["gripper_config"] = ws.get("workspace"), ws.get("gripper")
-    cubes = requests.get(f"{ARM}/api/cubes", timeout=10).json()["cubes"]
-    WORLD["cubes"] = [{"index": i, "name": c.get("name"), "rgba": c.get("rgba"),
-                       "pos": c.get("pos"), "size": c.get("size")} for i, c in enumerate(cubes)]
-    trays = requests.get(f"{ARM}/api/tray", timeout=10).json().get("trays", [])
-    WORLD["trays"] = [{"name": t["name"], "pos": t["pos"], "size": t["size"],
-                       "cubes": [c["name"] for c in t.get("cubes", [])]} for t in trays]
-    g = requests.get(f"{ARM}/api/gripping", timeout=10).json()
-    WORLD["ee"], WORLD["gripper"] = g.get("ee"), g.get("gripper")
-    WORLD["holding"] = (g.get("gripping") or {}).get("name")
+    WORLD.update(requests.get(f"{ARM}/api/world").json())
 
-def t_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"value": int(value)}, timeout=10)
-def t_move_to(x, y, z): requests.post(f"{ARM}/api/move_to",
-    json={"x": float(x), "y": float(y), "z": float(z), "duration": MOVE_MS}, timeout=10)
+def wait_idle():
+    streak = 0
+    while streak < 2:
+        streak = streak + 1 if requests.get(f"{ARM}/api/world?fields=idle", timeout=5).json().get("idle") else 0
+        time.sleep(0.3)
+
+def t_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"value": int(value)})
+
+def t_move_to(x, y, z):
+    requests.post(f"{ARM}/api/move_to",
+        json={"x": float(x), "y": float(y), "z": float(z), "duration": MOVE_MS})
+
+def t_move_to_cube(i):
+    c = WORLD["cubes"][int(i)]
+    x, y, z = c["pos"]
+    t_move_to(x, y, z + HOVER_DZ)
+
+def t_move_to_tray(index=0):
+    t = WORLD["trays"][int(index)]
+    x, y, z = t["pos"]
+    t_move_to(x, y, z + HOVER_DZ)
+
+def t_open_grip():  t_set_grip(GRIP_OPEN)
+def t_close_grip(): t_set_grip(GRIP_CLOSE)
+
+def t_dip():
+    x, y, z = WORLD["ee"]
+    t_move_to(x, y, z - HOVER_DZ)
+
 def t_done(reason=""):
     global DONE; DONE = True; print(f"done: {reason}")
 
-def wait_idle(interval=0.3):
-    streak = 0
-    while True:
-        streak = streak + 1 if requests.get(f"{ARM}/api/state", timeout=5).json()["state"].get("idle") else 0
-        if streak >= 2: return
-        time.sleep(interval)
-
-def spec(name, desc, props, required):
+def spec(name, desc, props={}, required=[]):
     return {"toolSpec": {"name": name, "description": desc, "inputSchema": {"json": {
         "type": "object", "properties": props, "required": required}}}}
 
-NUM = {"type": "number"}
 TOOLS = [
-    spec("done",     "Signal task complete.", {"reason": {"type": "string"}}, ["reason"]),
-    spec("set_grip", "Set gripper aperture. 0=closed, 255=open.",
-         {"value": {"type": "integer"}}, ["value"]),
-    spec("move_to",  "Move end-effector to world position (meters).",
-         {"x": NUM, "y": NUM, "z": NUM}, ["x", "y", "z"]),
+    spec("done",         "Signal task complete.", {"reason": {"type": "string"}}),
+    spec("move_to_cube", f"Hover above WORLD.cubes[i] (z + {HOVER_DZ}).",
+         {"i": {"type": "integer"}}, ["i"]),
+    spec("move_to_tray", f"Hover above WORLD.trays[index] (z + {HOVER_DZ}). index defaults to 0.",
+         {"index": {"type": "integer"}}),
+    spec("open_grip",  "Open gripper."),
+    spec("close_grip", "Close gripper."),
+    spec("dip", f"Descend by {HOVER_DZ}m from current ee position."),
 ]
-DISPATCH = {"done": t_done, "set_grip": t_set_grip, "move_to": t_move_to}
-SYS = "Drive a robot arm. Call done when complete. Pick exactly one tool per turn."
+DISPATCH = {"done": t_done, "move_to_cube": t_move_to_cube, "move_to_tray": t_move_to_tray,
+            "open_grip": t_open_grip, "close_grip": t_close_grip, "dip": t_dip}
+SYS = ("Drive a robot arm. Pickup: open_grip → move_to_cube → dip → close_grip → move_to_tray → "
+       "open_grip → done. Pick exactly one tool per turn.")
 
 def build_user():
     return f"task: {Q}\n{json.dumps({'WORLD': WORLD, 'RECENT_ACTIONS': list(ACTIONS)})}"

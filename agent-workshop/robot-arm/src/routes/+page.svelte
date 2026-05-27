@@ -155,14 +155,9 @@
 
   async function pollScene() {
     try {
-      const [gRes, tRes] = await Promise.all([
-        fetch('/api/gripping'),
-        fetch('/api/tray')
-      ]);
-      const g = await gRes.json();
-      const t = await tRes.json();
-      gripping = g.gripping ?? null;
-      trays = t.trays ?? [];
+      const w = await (await fetch('/api/world?fields=holding,trays')).json();
+      gripping = w.holding ?? null;
+      trays = w.trays ?? [];
     } catch (_) { /* transient */ }
   }
 
