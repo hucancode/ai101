@@ -46,9 +46,13 @@ def clamp_to_workspace(x, y, z):
         print(f"  (clamped {(x, y, z)} -> {(cx, cy, cz)})")
     return cx, cy, cz
 
-def wait_idle():
+def wait_idle(timeout=None):
+    deadline = time.time() + (timeout if timeout is not None else MOVE_MS / 1000 + 3.0)
     streak = 0
     while streak < 2:
+        if time.time() > deadline:
+            print("  (wait_idle timeout)")
+            return
         streak = streak + 1 if requests.get(f"{ARM}/api/world?fields=idle", timeout=5).json().get("idle") else 0
         time.sleep(0.3)
 

@@ -16,9 +16,12 @@ WORLD, ACTIONS = {}, deque(maxlen=12)
 def refresh_world():
     WORLD.update(requests.get(f"{ARM}/api/world").json())
 
-def wait_idle():
+def wait_idle(timeout=45.0):
+    deadline = time.time() + timeout
     streak = 0
     while streak < 2:
+        if time.time() > deadline:
+            return
         streak = streak + 1 if requests.get(f"{ARM}/api/world?fields=idle", timeout=5).json().get("idle") else 0
         time.sleep(0.3)
 

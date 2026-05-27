@@ -54,6 +54,8 @@ export class MujocoSim {
         startTime: 0,
         duration: 1000
     };
+    private motionEndedAt = 0;
+    private wasMoving = false;
 
     constructor(container: HTMLElement, mujocoInstance: MujocoModule) {
         this.mujoco = mujocoInstance;
@@ -497,15 +499,19 @@ export class MujocoSim {
         }
 
         const SETTLED_QVEL = 0.01; // joints settled threshold (rad/s)
+        const SETTLE_DEADLINE_MS = 1500; // contact chatter shouldn't block idle forever
         let maxQvel = 0;
         for (let i = 0; i < this.mjModel.nv; i++) {
             const v = Math.abs(this.mjData.qvel[i]);
             if (v > maxQvel) maxQvel = v;
         }
-        const idle = !this.gizmoAnim.active
-            && !this.sequenceAnimator.running
+        const moving = this.gizmoAnim.active || this.sequenceAnimator.running;
+        if (this.wasMoving && !moving) this.motionEndedAt = performance.now();
+        this.wasMoving = moving;
+        const sinceMotionEnd = this.motionEndedAt ? performance.now() - this.motionEndedAt : Infinity;
+        const idle = !moving
             && !this.paused
-            && maxQvel < SETTLED_QVEL;
+            && (maxQvel < SETTLED_QVEL || sinceMotionEnd > SETTLE_DEADLINE_MS);
 
         return {
             time: this.mjData.time,
