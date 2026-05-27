@@ -6,6 +6,7 @@
   import ArrowUpFromDot from 'lucide-svelte/icons/arrow-up-from-dot';
   import ArrowDownToDot from 'lucide-svelte/icons/arrow-down-to-dot';
   import Workflow from 'lucide-svelte/icons/workflow';
+  import Grip from 'lucide-svelte/icons/grip';
   import PanelRightClose from 'lucide-svelte/icons/panel-right-close';
   import PanelRightOpen from 'lucide-svelte/icons/panel-right-open';
   import type { Command, RobotState } from '$lib/robot/types';
@@ -371,20 +372,32 @@
         <Workflow size={20} />
       </button>
     </span>
-    <button
-      class="hud-btn panel-toggle"
-      on:click={() => (panelOpen = !panelOpen)}
-      title={panelOpen ? 'Hide panel' : 'Show panel'}
-      aria-label={panelOpen ? 'Hide panel' : 'Show panel'}
-      aria-pressed={panelOpen}
-    >
-      {#if panelOpen}
-        <PanelRightClose size={20} />
-      {:else}
-        <PanelRightOpen size={20} />
-      {/if}
-    </button>
+    <span class="hud-slider" title="Gripper Aperture">
+      <span class="hud-slider-icon" aria-hidden="true"><Grip size={18} /></span>
+      <input
+        type="range"
+        min="0"
+        max="255"
+        bind:value={gripVal}
+        on:input={() => postJson('/api/ctrl', { gripper: gripVal })}
+        aria-label="Gripper Aperture"
+      />
+      <span class="hud-slider-val">{gripVal}</span>
+    </span>
   </div>
+
+  {#if !panelOpen}
+    <div class="hud hud-right">
+      <button
+        class="hud-btn"
+        on:click={() => (panelOpen = true)}
+        title="Show panel"
+        aria-label="Show panel"
+      >
+        <PanelRightOpen size={20} />
+      </button>
+    </div>
+  {/if}
 
   {#if loadStatus}
     <div class="overlay">
@@ -409,7 +422,17 @@
   <aside class="panel">
     <header>
       <h1>Robot Arm</h1>
-      <button on:click={toggleDark}>{darkMode ? 'Light' : 'Dark'}</button>
+      <div class="header-actions">
+        <button on:click={toggleDark}>{darkMode ? 'Light' : 'Dark'}</button>
+        <button
+          class="panel-close"
+          on:click={() => (panelOpen = false)}
+          title="Hide panel"
+          aria-label="Hide panel"
+        >
+          <PanelRightClose size={18} />
+        </button>
+      </div>
     </header>
 
     <section>
@@ -434,15 +457,6 @@
         {/each}
       </div>
       {#if sceneReloading}<p class="hint">Reloading...</p>{/if}
-    </section>
-
-    <section>
-      <h2>Gripper Aperture</h2>
-      <div class="row">
-        <input type="range" min="0" max="255" bind:value={gripVal}
-          on:input={() => postJson('/api/ctrl', { gripper: gripVal })} />
-        <span>{gripVal}</span>
-      </div>
     </section>
 
     <section>
@@ -564,6 +578,10 @@
     display: flex; gap: 0.4rem;
     z-index: 6;
   }
+  .hud-right {
+    left: auto;
+    right: 0.75rem;
+  }
   .hud-btn {
     width: 2.25rem; height: 2.25rem;
     display: inline-grid; place-items: center;
@@ -576,12 +594,18 @@
     cursor: pointer;
   }
   .hud-btn:hover:not(:disabled) {
-    background: rgba(30, 41, 59, 0.9);
-    border-color: #475569;
+    background: rgba(79, 70, 229, 0.25);
+    border-color: #4f46e5;
+    color: #c7d2fe;
   }
   .hud-btn.on {
-    background: #16a34a;
-    border-color: #22c55e;
+    background: #4f46e5;
+    border-color: #6366f1;
+    color: white;
+  }
+  .hud-btn.on:hover:not(:disabled) {
+    background: #6366f1;
+    border-color: #818cf8;
     color: white;
   }
   .hud-btn:disabled {
@@ -598,7 +622,28 @@
     overflow: hidden;
   }
   .hud-group .hud-btn { border-radius: 0; border: 0; }
-  .panel-toggle { margin-left: auto; }
+
+  .hud-slider {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 2.25rem;
+    padding: 0 0.6rem;
+    background: rgba(15, 23, 42, 0.75);
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    backdrop-filter: blur(8px);
+  }
+  .hud-slider-icon { display: inline-grid; place-items: center; color: #cbd5e1; }
+  .hud-slider input[type="range"] { width: 130px; }
+  .hud-slider-val {
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: #e2e8f0;
+    min-width: 1.8rem;
+    text-align: right;
+  }
 
   .panel {
     position: absolute; top: 0; right: 0; bottom: 0;
@@ -611,6 +656,21 @@
     z-index: 5;
   }
   .panel header { display: flex; justify-content: space-between; align-items: center; }
+  .header-actions { display: flex; gap: 0.4rem; align-items: center; }
+  .panel-close {
+    background: transparent;
+    color: #cbd5e1;
+    border: 1px solid #334155;
+    padding: 0.25rem;
+    width: 1.9rem; height: 1.9rem;
+    display: inline-grid; place-items: center;
+    border-radius: 6px;
+  }
+  .panel-close:hover {
+    background: rgba(79, 70, 229, 0.25);
+    border-color: #4f46e5;
+    color: #c7d2fe;
+  }
   .panel h1 { font-size: 1rem; margin: 0; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
   .panel section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #1e293b; }
   .panel h2 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin: 0 0 0.5rem; }
