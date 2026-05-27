@@ -5,7 +5,8 @@ export default defineConfig({
   plugins: [sveltekit()],
   server: {
     port: 3000,
-    host: '0.0.0.0'
+    host: '0.0.0.0',
+    watch: { usePolling: true, interval: 300 }
   },
   resolve: {
     alias: {

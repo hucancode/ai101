@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import * as THREE from 'three';
-  import Grip from 'lucide-svelte/icons/grip';
+  import Move3d from 'lucide-svelte/icons/move-3d';
   import MapPin from 'lucide-svelte/icons/map-pin';
   import ArrowUpFromDot from 'lucide-svelte/icons/arrow-up-from-dot';
   import ArrowDownToDot from 'lucide-svelte/icons/arrow-down-to-dot';
@@ -327,18 +327,18 @@
       class:on={ikGizmo}
       on:click={toggleIkGizmo}
       disabled={!isLeader}
-      title="Gripper Control"
-      aria-label="Gripper Control"
+      title="EE control"
+      aria-label="EE control"
     >
-      <Grip size={20} />
+      <Move3d size={20} />
     </button>
     <button
       class="hud-btn"
       class:on={pickGizmo}
       on:click={togglePickGizmo}
       disabled={!isLeader}
-      title="Pickup Location Control"
-      aria-label="Pickup Location Control"
+      title="Pickup Location (click to place)"
+      aria-label="Pickup Location (click to place)"
     >
       <MapPin size={20} />
     </button>
@@ -523,6 +523,7 @@
           <span>paused</span><span>{state.paused}</span>
           <span>speed</span><span>{state.speedMultiplier}x</span>
           <span>seq</span><span>{state.sequenceRunning}</span>
+          <span>idle</span><span>{state.idle}</span>
         </div>
         <details>
           <summary>qpos[0..6]</summary>

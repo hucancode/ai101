@@ -162,7 +162,7 @@ curl -X POST localhost:3000/api/ctrl -d '{"gripper":255}' -H 'content-type: appl
 ```
 
 ### `POST /api/gripper`
-Set gripper openness. `0` = closed, `255` = fully open. Clamped server-side.
+Set gripper aperture. `0` = closed, `255` = fully open. Clamped server-side.
 
 ```bash
 curl -X POST localhost:3000/api/gripper \

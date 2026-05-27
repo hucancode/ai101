@@ -100,6 +100,7 @@ export interface RobotState {
     speedMultiplier: number;
     ikEnabled: boolean;
     sequenceRunning: boolean;
+    idle: boolean;
     qpos: number[];
     ctrl: number[];
     gripper: number | null;

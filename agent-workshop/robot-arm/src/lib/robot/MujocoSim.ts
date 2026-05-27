@@ -5,7 +5,6 @@
 
 
 import * as THREE from 'three';
-import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { IkSystem } from './IkSystem';
 import { RenderSystem } from './RenderSystem';
 import { RobotLoader, SceneMode } from './RobotLoader';
@@ -27,8 +26,10 @@ export class MujocoSim {
     sequenceAnimator: SequenceAnimator;
 
     pickupGizmo: THREE.Mesh;
-    pickupControl: TransformControls;
-    pickupControlHelper: THREE.Object3D;
+    private pickupClickEnabled = false;
+    private pickupPointerDown = { x: 0, y: 0, t: 0 };
+    private pickupRaycaster = new THREE.Raycaster();
+    private pickupGroundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 
     frameId: number | null = null;
     paused = false;
@@ -74,26 +75,43 @@ export class MujocoSim {
         this.pickupGizmo.visible = false;
         this.renderSys.scene.add(this.pickupGizmo);
 
-        this.pickupControl = new TransformControls(this.renderSys.camera, this.renderSys.renderer.domElement);
-        this.pickupControl.setMode('translate');
-        this.pickupControl.setSpace('world');
-        this.pickupControl.addEventListener('dragging-changed', (event) => {
-            const e = event as unknown as { value: boolean };
-            this.renderSys.controls.enabled = !e.value;
-        });
-        this.pickupControl.attach(this.pickupGizmo);
-        this.pickupControlHelper = this.pickupControl.getHelper();
-        this.pickupControlHelper.visible = false;
-        this.pickupControl.enabled = false;
-        this.renderSys.scene.add(this.pickupControlHelper);
+        const dom = this.renderSys.renderer.domElement;
+        dom.addEventListener('pointerdown', this.onPickupPointerDown);
+        dom.addEventListener('pointerup', this.onPickupPointerUp);
 
         this.renderSys.initLights();
     }
 
+    private onPickupPointerDown = (e: PointerEvent) => {
+        if (!this.pickupClickEnabled || e.button !== 0) return;
+        this.pickupPointerDown.x = e.clientX;
+        this.pickupPointerDown.y = e.clientY;
+        this.pickupPointerDown.t = performance.now();
+    };
+
+    private onPickupPointerUp = (e: PointerEvent) => {
+        if (!this.pickupClickEnabled || e.button !== 0) return;
+        const dx = e.clientX - this.pickupPointerDown.x;
+        const dy = e.clientY - this.pickupPointerDown.y;
+        if (Math.hypot(dx, dy) > 5) return;
+
+        const dom = this.renderSys.renderer.domElement;
+        const rect = dom.getBoundingClientRect();
+        const ndc = new THREE.Vector2(
+            ((e.clientX - rect.left) / rect.width) * 2 - 1,
+            -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        this.pickupRaycaster.setFromCamera(ndc, this.renderSys.camera);
+        const hit = new THREE.Vector3();
+        if (this.pickupRaycaster.ray.intersectPlane(this.pickupGroundPlane, hit)) {
+            this.pickupGizmo.position.set(hit.x, hit.y, 0.04);
+        }
+    };
+
     setPickupGizmoVisible(visible: boolean) {
         this.pickupGizmo.visible = visible;
-        this.pickupControlHelper.visible = visible;
-        this.pickupControl.enabled = visible;
+        this.pickupClickEnabled = visible;
+        this.renderSys.renderer.domElement.style.cursor = visible ? 'crosshair' : '';
     }
 
     getPickupGizmoPosition(): { x: number; y: number; z: number } {
@@ -478,12 +496,24 @@ export class MujocoSim {
             }
         }
 
+        const SETTLED_QVEL = 0.01; // joints settled threshold (rad/s)
+        let maxQvel = 0;
+        for (let i = 0; i < this.mjModel.nv; i++) {
+            const v = Math.abs(this.mjData.qvel[i]);
+            if (v > maxQvel) maxQvel = v;
+        }
+        const idle = !this.gizmoAnim.active
+            && !this.sequenceAnimator.running
+            && !this.paused
+            && maxQvel < SETTLED_QVEL;
+
         return {
             time: this.mjData.time,
             paused: this.paused,
             speedMultiplier: this.speedMultiplier,
             ikEnabled: this.userIkEnabled,
             sequenceRunning: this.sequenceAnimator.running,
+            idle,
             qpos,
             ctrl,
             gripper: this.gripperActuatorId !== -1 ? this.mjData.ctrl[this.gripperActuatorId] : null,
@@ -497,7 +527,10 @@ export class MujocoSim {
 
     dispose() {
         if (this.frameId) cancelAnimationFrame(this.frameId);
-        this.pickupControl.dispose();
+        const dom = this.renderSys.renderer.domElement;
+        dom.removeEventListener('pointerdown', this.onPickupPointerDown);
+        dom.removeEventListener('pointerup', this.onPickupPointerUp);
+        dom.style.cursor = '';
         this.renderSys.dispose();
         this.ikSys.dispose();
         if (this.mjvOption) this.mjvOption.delete();
