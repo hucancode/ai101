@@ -1,14 +1,5 @@
 # Agent Loop from First Principles
 
-## Setup
-
-```bash
-uv sync
-uv run playwright install chromium
-ollama pull llama3.2:3b
-ollama serve
-```
-
 ## Run
 
 ```bash

@@ -1,36 +1,38 @@
-import os, json, requests
+import os, requests, boto3
 
-OLLAMA = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-MODEL  = os.environ.get("MODEL", "llama3.2:3b")
-Q      = os.environ.get("Q", "What's the weather?")
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+MODEL      = os.environ.get("MODEL", "us.amazon.nova-lite-v1:0")
+Q          = os.environ.get("Q", "What's the weather in Tokyo?")
 
-def chat(messages):
-    r = requests.post(f"{OLLAMA}/api/chat", timeout=120, json={
-        "model": MODEL, "messages": messages, "stream": False})
-    return r.json()["message"]["content"]
+client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
 def say_hi(name): return f"Hello, {name}!"
-
-def weather(city=""):
+def weather(city):
     print(f"Fetching weather for {city}...")
     r = requests.get(f"https://wttr.in/{city}", params={"format": 4},
                      headers={"User-Agent": "curl/8"}, timeout=10)
     return r.text.strip()
 
-TOOLS = {
-    "say_hi":  (say_hi,  {"name": "string"}),
-    "weather": (weather, {"city": "string"}),
-}
+def spec(name, desc, props, required):
+    return {"toolSpec": {"name": name, "description": desc, "inputSchema": {"json": {
+        "type": "object", "properties": props, "required": required}}}}
+
+TOOLS = [
+    spec("say_hi",  "Greet someone.",       {"name": {"type": "string"}}, ["name"]),
+    spec("weather", "Weather for a city.",  {"city": {"type": "string"}}, ["city"]),
+]
+DISPATCH = {"say_hi": say_hi, "weather": weather}
 
 def run(user_msg):
-    tools = "\n".join(f"- {n}{json.dumps(s)}" for n, (_, s) in TOOLS.items())
-    sys = f'Tools:\n{tools}\nReply ONLY: {{"tool":"...","args":{{...}}}}.'
-    raw = chat([{"role": "system", "content": sys},
-                {"role": "user",   "content": user_msg}], json_mode=True)
-    print(f"USER: {user_msg}\nMODEL: {raw}")
-    call = json.loads(raw)
-    fn, _ = TOOLS[call["tool"]]
-    print(f"RESULT: {fn(**call.get('args', {}))}\n")
+    r = client.converse(modelId=MODEL,
+        messages=[{"role": "user", "content": [{"text": user_msg}]}],
+        toolConfig={"tools": TOOLS}, inferenceConfig={"maxTokens": 1024})
+    print(f"USER: {user_msg}")
+    for b in r["output"]["message"]["content"]:
+        if "toolUse" not in b: continue
+        t = b["toolUse"]
+        print(f"MODEL: {t['name']}({t['input']})")
+        print(f"RESULT: {DISPATCH[t['name']](**t['input'])}\n")
 
 if __name__ == "__main__":
     run(Q)
