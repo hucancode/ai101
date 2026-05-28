@@ -4,8 +4,6 @@ from collections import deque
 
 ARM        = os.environ.get("ARM_URL", "http://localhost:3000")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-# MODEL      = os.environ.get("MODEL", "us.amazon.nova-pro-v1:0")
-# MODEL      = os.environ.get("MODEL", "us.anthropic.claude-sonnet-4-6")
 MODEL      = os.environ.get("MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 Q          = os.environ.get("Q", "Pick up the red cube.")
 MAX_STEPS  = int(os.environ.get("MAX_STEPS", "30"))

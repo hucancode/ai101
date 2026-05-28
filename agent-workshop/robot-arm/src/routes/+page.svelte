@@ -337,6 +337,9 @@
   function toggleDark() {
     darkMode = !darkMode;
     sim?.renderSys.setDarkMode(darkMode);
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('light', !darkMode);
+    }
   }
 </script>
 
@@ -637,67 +640,83 @@
 <style>
   .root { position: fixed; inset: 0; }
   .viewport { position: absolute; inset: 0; }
+
   .overlay {
     position: absolute; inset: 0;
     display: grid; place-items: center;
-    background: rgba(15,23,42,0.6); backdrop-filter: blur(6px);
-    z-index: 10;
+    background: color-mix(in srgb, var(--bg) 60%, transparent);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    z-index: var(--z-overlay);
   }
   .card {
-    background: #1e293b; border: 1px solid #334155;
-    padding: 2rem; border-radius: 12px; min-width: 280px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    min-width: 280px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   }
   .card h3 { margin: 0 0 0.5rem; }
-  .card.error pre { color: #fca5a5; white-space: pre-wrap; }
+  .card.error pre { color: var(--danger); white-space: pre-wrap; }
 
   .hud {
     position: absolute;
-    top: 0.75rem; left: 0.75rem;
-    display: flex; gap: 0.4rem;
-    z-index: 6;
+    top: 0.75rem;
+    left: 0.75rem;
+    display: flex;
+    gap: 0.4rem;
+    z-index: var(--z-hud);
   }
-  .hud-right {
-    left: auto;
-    right: 0.75rem;
-  }
-  .hud-btn {
-    width: 2.25rem; height: 2.25rem;
-    display: inline-grid; place-items: center;
+  .hud-right { left: auto; right: 0.75rem; }
+
+  .hud-btn,
+  .panel-close {
+    display: inline-grid;
+    place-items: center;
     padding: 0;
-    background: rgba(15, 23, 42, 0.75);
-    color: #e2e8f0;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     cursor: pointer;
   }
-  .hud-btn:hover:not(:disabled) {
-    background: rgba(79, 70, 229, 0.25);
-    border-color: #4f46e5;
-    color: #c7d2fe;
+  .hud-btn { width: 2.25rem; height: 2.25rem; }
+  .panel-close {
+    width: 1.9rem;
+    height: 1.9rem;
+    background: transparent;
+    color: var(--text-dim);
+  }
+  .hud-btn:hover:not(:disabled),
+  .panel-close:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-text);
   }
   .hud-btn.on {
-    background: #4f46e5;
-    border-color: #6366f1;
-    color: white;
+    background: var(--accent);
+    border-color: var(--accent-hi);
+    color: #fff;
   }
   .hud-btn.on:hover:not(:disabled) {
-    background: #6366f1;
-    border-color: #818cf8;
-    color: white;
+    background: var(--accent-hi);
+    border-color: var(--accent-hi);
   }
   .hud-btn:disabled {
-    color: #64748b;
-    border-color: #1e293b;
+    color: var(--text-faint);
+    border-color: var(--border-soft);
     cursor: not-allowed;
     opacity: 0.6;
   }
+
   .hud-group {
     display: inline-flex;
     gap: 1px;
-    background: #334155;
-    border-radius: 6px;
+    background: var(--border);
+    border-radius: var(--radius);
     overflow: hidden;
   }
   .hud-group .hud-btn { border-radius: 0; border: 0; }
@@ -708,83 +727,105 @@
     gap: 0.5rem;
     height: 2.25rem;
     padding: 0 0.6rem;
-    background: rgba(15, 23, 42, 0.75);
-    color: #e2e8f0;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
-  .hud-slider-icon { display: inline-grid; place-items: center; color: #cbd5e1; }
+  .hud-slider-icon { display: inline-grid; place-items: center; color: var(--text-dim); }
   .hud-slider input[type="range"] { width: 130px; }
   .hud-slider-val {
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
-    color: #e2e8f0;
+    color: var(--text);
     min-width: 1.8rem;
     text-align: right;
   }
 
   .panel {
-    position: absolute; top: 0; right: 0; bottom: 0;
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
     width: 360px;
-    background: rgba(15,23,42,0.85);
+    background: var(--surface-panel);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
-    border-left: 1px solid #1e293b;
+    border-left: 1px solid var(--border-soft);
     padding: 1rem;
     overflow-y: auto;
-    z-index: 5;
+    z-index: var(--z-panel);
   }
   .panel header { display: flex; justify-content: space-between; align-items: center; }
   .header-actions { display: flex; gap: 0.4rem; align-items: center; }
-  .panel-close {
-    background: transparent;
-    color: #cbd5e1;
-    border: 1px solid #334155;
-    padding: 0.25rem;
-    width: 1.9rem; height: 1.9rem;
-    display: inline-grid; place-items: center;
-    border-radius: 6px;
+  .panel h1 {
+    font-size: 1rem;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
-  .panel-close:hover {
-    background: rgba(79, 70, 229, 0.25);
-    border-color: #4f46e5;
-    color: #c7d2fe;
+  .panel section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-soft);
   }
-  .panel h1 { font-size: 1rem; margin: 0; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
-  .panel section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #1e293b; }
-  .panel h2 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin: 0 0 0.5rem; }
+  .panel h2 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin: 0 0 0.5rem;
+  }
 
   .role { display: flex; align-items: center; gap: 0.5rem; }
   .badge {
-    font-size: 0.65rem; letter-spacing: 0.1em; padding: 0.2rem 0.5rem;
-    border-radius: 3px; font-weight: 700;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-weight: 700;
   }
-  .badge.leader { background: #16a34a; color: white; }
-  .badge.viewer { background: #475569; color: #cbd5e1; }
+  .badge.leader { background: var(--success); color: #fff; }
+  .badge.viewer { background: var(--text-faint); color: var(--text-dim); }
 
   .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
   input[type="range"] { flex: 1; }
+
   button {
-    background: #4f46e5; color: white; border: 0;
-    padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer;
-    font-family: inherit; font-size: 0.8rem;
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8rem;
   }
-  button:hover { background: #6366f1; }
-  button.on { background: #16a34a; }
-  button.on:hover { background: #22c55e; }
-  button:disabled { background: #475569; cursor: not-allowed; }
-  .hint { font-size: 0.7rem; color: #64748b; }
-  .kv.small { font-size: 0.7rem; margin-bottom: 0.5rem; }
+  button:hover { background: var(--accent-hi); }
+  button.on { background: var(--success); }
+  button.on:hover { background: var(--success-hi); }
+  button:disabled { background: var(--text-faint); cursor: not-allowed; }
+
+  .hint { font-size: 0.7rem; color: var(--text-faint); }
+  .dim { color: var(--text-faint); font-size: 0.8rem; }
 
   .state .kv {
-    display: grid; grid-template-columns: 5rem 1fr;
-    gap: 0.25rem 0.5rem; font-size: 0.75rem;
+    display: grid;
+    grid-template-columns: 5rem 1fr;
+    gap: 0.25rem 0.5rem;
+    font-size: 0.75rem;
   }
-  .state .kv span:nth-child(odd) { color: #64748b; }
-  .state pre { font-size: 0.7rem; background: #0f172a; padding: 0.5rem; border-radius: 4px; overflow-x: auto; }
+  .state .kv span:nth-child(odd) { color: var(--text-faint); }
+  .state pre {
+    font-size: 0.7rem;
+    background: var(--bg);
+    padding: 0.5rem;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
   .state details { margin-top: 0.5rem; }
-  .state summary { cursor: pointer; font-size: 0.75rem; color: #94a3b8; }
-  .dim { color: #64748b; font-size: 0.8rem; }
+  .state summary { cursor: pointer; font-size: 0.75rem; color: var(--text-muted); }
 
   .item {
     display: grid;
@@ -794,21 +835,26 @@
     font-size: 0.75rem;
     padding: 0.2rem 0;
   }
-  .item .name { color: #e2e8f0; }
-  .item .pos { color: #64748b; font-variant-numeric: tabular-nums; }
+  .item .name { color: var(--text); }
+  .item .pos { color: var(--text-faint); font-variant-numeric: tabular-nums; }
   .swatch {
-    width: 0.9rem; height: 0.9rem;
+    width: 0.9rem;
+    height: 0.9rem;
     border-radius: 3px;
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.15);
   }
+
   .tray { margin-bottom: 0.5rem; }
   .tray-head {
-    display: flex; justify-content: space-between;
-    font-size: 0.75rem; color: #cbd5e1;
-    border-bottom: 1px dashed #334155;
-    padding-bottom: 0.2rem; margin-bottom: 0.2rem;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 0.2rem;
+    margin-bottom: 0.2rem;
   }
-  .tray-head .count { color: #94a3b8; font-size: 0.7rem; }
+  .tray-head .count { color: var(--text-muted); font-size: 0.7rem; }
   .cubes { list-style: none; padding: 0; margin: 0; }
 
   .scene-grid {
@@ -818,14 +864,21 @@
   }
   .tool-grid { grid-template-columns: repeat(3, 1fr); }
   .scene-btn {
-    background: #1e293b;
-    color: #cbd5e1;
-    border: 1px solid #334155;
+    background: var(--surface);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
     text-transform: capitalize;
     font-size: 0.75rem;
     padding: 0.4rem 0.5rem;
   }
-  .scene-btn:hover:not(:disabled) { background: #334155; color: #f1f5f9; }
-  .scene-btn.on { background: #4f46e5; color: white; border-color: #6366f1; }
-  .scene-btn.on:hover:not(:disabled) { background: #6366f1; }
+  .scene-btn:hover:not(:disabled) {
+    background: var(--border);
+    color: var(--text);
+  }
+  .scene-btn.on {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent-hi);
+  }
+  .scene-btn.on:hover:not(:disabled) { background: var(--accent-hi); }
 </style>
