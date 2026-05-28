@@ -54,7 +54,7 @@ def wait_idle(timeout=None):
         streak = streak + 1 if requests.get(f"{ARM}/api/world?fields=idle", timeout=5).json().get("idle") else 0
         time.sleep(0.3)
 
-def t_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"value": int(value)})
+def post_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"aperture": int(value)})
 
 def post_move_to(x, y, z): requests.post(f"{ARM}/api/move_to",
     json={"x": float(x), "y": float(y), "z": float(z), "duration": MOVE_MS})
@@ -69,9 +69,9 @@ def t_pickup():
     cube = next((c for c in (WORLD["cubes"] or []) if c["name"] == h["cube"]), None)
     if not cube: raise ValueError(f"cube {h['cube']} no longer in WORLD.cubes")
     x, y, z = cube["pos"]
-    t_set_grip(GRIP_OPEN); wait_idle()
+    post_set_grip(GRIP_OPEN); wait_idle()
     post_move_to(x, y, z); wait_idle()
-    t_set_grip(GRIP_CLOSE); wait_idle()
+    post_set_grip(GRIP_CLOSE); wait_idle()
     post_move_to(x, y, z + HOVER_DZ); wait_idle()
 
 def t_place(index=0):
@@ -82,7 +82,7 @@ def t_place(index=0):
     x, y, z = t["pos"]
     tx, ty, tz = clamp_to_workspace(x, y, z + HOVER_DZ)
     post_move_to(tx, ty, tz); wait_idle()
-    t_set_grip(GRIP_OPEN); wait_idle()
+    post_set_grip(GRIP_OPEN); wait_idle()
 
 def spec(name, desc, props={}, required=[]):
     return {"toolSpec": {"name": name, "description": desc, "inputSchema": {"json": {

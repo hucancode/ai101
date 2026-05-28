@@ -43,11 +43,6 @@ export class SequenceAnimator {
     
     private gripperVal = 0; // 0 = Open/Closed (dependent on model, usually 0=Closed, 255/0.08=Open)
 
-    // Random y offset injected at pickup/place to simulate sensor/grasp noise. Scaled by `flakiness` (0..1).
-    flakiness = 0;
-    private pickupYOffset = 0;
-    private placeYOffset = 0;
-
     // 'both' = pickup + place (default); 'pickup' = stop after lift; 'place' = skip pickup, drop currently-held cube
     private mode: 'pickup' | 'place' | 'both' = 'both';
 
@@ -134,8 +129,6 @@ export class SequenceAnimator {
         this.curCubeIdx = 0;
         this.droppedCount = 0;
         this.gripperVal = 0;
-        this.pickupYOffset = 0;
-        this.placeYOffset = 0;
     }
 
     // Called every frame to smoothly move the joints towards destination
@@ -200,16 +193,6 @@ export class SequenceAnimator {
          this.startQuat.copy(ikTarget.quaternion);
          this.timer = 0;
 
-         // Sample fresh random y offset on entry to each pickup/place phase.
-         // Range: [-0.1*flakiness, +0.1*flakiness] world units. flakiness=1 ⇒ max ±0.1.
-         const maxOffset = 0.1;
-         if (this.step === 0) {
-             this.pickupYOffset = (Math.random() * 2 - 1) * this.flakiness * maxOffset;
-         }
-         if (this.step === 8) {
-             this.placeYOffset = (Math.random() * 2 - 1) * this.flakiness * maxOffset;
-         }
-
          // Capture current joints as start
          this.startJoints = [];
          for(let i=0; i<7; i++) this.startJoints.push(mjData.qpos[i]);
@@ -228,7 +211,6 @@ export class SequenceAnimator {
              // We lower it by 2cm.
              cPos.z -= 0.02;
          }
-         cPos.y += this.pickupYOffset;
 
          // Get tray position
          const tPos = new THREE.Vector3(mjData.xpos[this.trayId*3], mjData.xpos[this.trayId*3+1], mjData.xpos[this.trayId*3+2]);
@@ -247,7 +229,6 @@ export class SequenceAnimator {
          const dropZ = 0.005 + 0.02 + (layerIdx * 0.04) + 0.02 + 0.04;
          const hoverZ = dropZ + 0.1;
          dropPos.z = dropZ;
-         dropPos.y += this.placeYOffset;
 
          const mul = 0.8;
          let useExplicitJoints = false;

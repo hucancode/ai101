@@ -40,7 +40,6 @@ export class MujocoSim {
     paused = false;
     gripperActuatorId = -1;
     speedMultiplier = 1;
-    flakiness = 0;
 
     private userIkEnabled = false;
     private programmaticIkActive = false;
@@ -427,15 +426,15 @@ export class MujocoSim {
         }
     }
 
-    setCtrl(values: number[]) {
+    setActuator(values: number[]) {
         if (!this.mjData) return;
         const n = Math.min(values.length, this.mjData.ctrl.length);
         for (let i = 0; i < n; i++) this.mjData.ctrl[i] = values[i];
     }
 
-    setGripper(value: number) {
+    setGripper(aperture: number) {
         if (!this.mjData || this.gripperActuatorId === -1) return;
-        this.mjData.ctrl[this.gripperActuatorId] = value;
+        this.mjData.ctrl[this.gripperActuatorId] = aperture;
     }
 
     reset() {
@@ -475,11 +474,6 @@ export class MujocoSim {
 
     setSpeedMultiplier(speed: number) {
         this.speedMultiplier = speed;
-    }
-
-    setFlakiness(value: number) {
-        this.flakiness = Math.max(0, Math.min(1, value));
-        this.sequenceAnimator.flakiness = this.flakiness;
     }
 
     setViewerMode(enabled: boolean) {

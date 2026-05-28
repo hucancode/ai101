@@ -71,7 +71,7 @@ export interface MujocoModule {
 
 export interface Command {
     id: string;
-    type: 'move_to' | 'pickup' | 'reset' | 'pause' | 'resume' | 'ctrl' | 'gripper' | 'speed' | 'ik_enabled' | 'flakiness';
+    type: 'move_to' | 'pickup' | 'reset' | 'pause' | 'resume' | 'actuator' | 'gripper' | 'speed' | 'ik_enabled';
     payload?: unknown;
 }
 

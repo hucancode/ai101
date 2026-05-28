@@ -54,7 +54,6 @@
 
   let gripVal = 0;
   let speedVal = 1;
-  let flakyVal = 0;
   let panelOpen = true;
 
   let sceneMode: SceneMode = 'standard';
@@ -147,17 +146,14 @@
       case 'resume':
         sim.setPaused(false);
         break;
-      case 'ctrl':
-        sim.setCtrl((p!.values as number[]) ?? []);
+      case 'actuator':
+        sim.setActuator((p!.values as number[]) ?? []);
         break;
       case 'gripper':
-        sim.setGripper((p!.value as number) ?? 0);
+        sim.setGripper((p!.aperture as number) ?? 0);
         break;
       case 'speed':
         sim.setSpeedMultiplier((p!.value as number) ?? 1);
-        break;
-      case 'flakiness':
-        sim.setFlakiness((p!.value as number) ?? 0);
         break;
     }
   }
@@ -455,7 +451,7 @@
         min="0"
         max="255"
         bind:value={gripVal}
-        on:input={() => postJson('/api/ctrl', { gripper: gripVal })}
+        on:input={() => postJson('/api/actuator', { aperture: gripVal })}
         aria-label="Gripper Aperture"
       />
       <span class="hud-slider-val">{gripVal}</span>
@@ -542,16 +538,6 @@
           on:input={() => postJson('/api/speed', { speed: speedVal })} />
         <span>{speedVal.toFixed(1)}x</span>
       </div>
-    </section>
-
-    <section>
-      <h2>Flakiness</h2>
-      <div class="row">
-        <input type="range" min="0" max="1" step="0.01" bind:value={flakyVal}
-          on:input={() => postJson('/api/flakiness', { flakiness: flakyVal })} />
-        <span>{flakyVal.toFixed(2)}</span>
-      </div>
-      <p class="hint">Random ±y offset on pickup/place. 0 = perfect, 1 = flaky.</p>
     </section>
 
     <section>

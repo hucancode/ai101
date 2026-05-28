@@ -26,7 +26,7 @@ def wait_idle(timeout=None):
         streak = streak + 1 if requests.get(f"{ARM}/api/world?fields=idle", timeout=5).json().get("idle") else 0
         time.sleep(0.3)
 
-def t_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"value": int(value)})
+def t_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"aperture": int(value)})
 
 def t_move_to(x, y, z):
     requests.post(f"{ARM}/api/move_to",

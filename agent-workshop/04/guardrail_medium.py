@@ -26,7 +26,7 @@ def wait_idle(timeout=None):
         streak = streak + 1 if requests.get(f"{ARM}/api/world?fields=idle", timeout=5).json().get("idle") else 0
         time.sleep(0.3)
 
-def t_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"value": int(value)})
+def post_set_grip(value): requests.post(f"{ARM}/api/gripper", json={"aperture": int(value)})
 
 def post_move_to(x, y, z): requests.post(f"{ARM}/api/move_to",
     json={"x": float(x), "y": float(y), "z": float(z), "duration": MOVE_MS})
@@ -36,16 +36,16 @@ def t_move_to(x, y, z):
 
 def t_pickup():
     x, y, _ = WORLD["ee"]
-    t_set_grip(GRIP_OPEN); wait_idle()
+    post_set_grip(GRIP_OPEN); wait_idle()
     post_move_to(x, y, 0.0); wait_idle()
-    t_set_grip(GRIP_CLOSE); wait_idle()
+    post_set_grip(GRIP_CLOSE); wait_idle()
     post_move_to(x, y, HOVER_DZ); wait_idle()
 
 def t_place(index=0):
     t = WORLD["trays"][int(index)]
     x, y, z = t["pos"]
     post_move_to(x, y, z + HOVER_DZ); wait_idle()
-    t_set_grip(GRIP_OPEN); wait_idle()
+    post_set_grip(GRIP_OPEN); wait_idle()
 
 def t_done(reason=""):
     global DONE; DONE = True; print(f"done: {reason}")
