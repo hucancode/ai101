@@ -13,6 +13,8 @@
   import Pause from 'lucide-svelte/icons/pause';
   import Play from 'lucide-svelte/icons/play';
   import Boxes from 'lucide-svelte/icons/boxes';
+  import loadMujoco from '@mujoco/mujoco';
+  import wasmUrl from '@mujoco/mujoco/mujoco.wasm?url';
   import type { Command, RobotState } from '$lib/robot/types';
   import type { MujocoSim as MujocoSimType } from '$lib/robot/MujocoSim';
   import type { SceneMode } from '$lib/robot/RobotLoader';
@@ -291,10 +293,9 @@
     try {
       const { MujocoSim } = await import('$lib/robot/MujocoSim');
       MujocoSimCtor = MujocoSim;
-      const loadMujoco = (await import('mujoco_wasm')).default as (cfg?: unknown) => Promise<unknown>;
       loadStatus = 'Loading MuJoCo WASM...';
       mujocoModule = await loadMujoco({
-        locateFile: (path: string) => path.endsWith('.wasm') ? 'https://unpkg.com/mujoco-js@0.0.7/dist/mujoco_wasm.wasm' : path
+        locateFile: (path: string) => path.endsWith('.wasm') ? wasmUrl : path
       });
 
       try {

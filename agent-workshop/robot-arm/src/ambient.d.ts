@@ -1,4 +1,4 @@
-declare module 'mujoco_wasm' {
-  const loadMujoco: (config?: unknown) => Promise<unknown>;
-  export default loadMujoco;
+declare module '*?url' {
+  const url: string;
+  export default url;
 }

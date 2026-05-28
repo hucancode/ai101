@@ -215,7 +215,7 @@ export class MujocoSim {
         await loader.load(onProgress);
 
         try {
-            this.mjModel = this.mujoco.MjModel.loadFromXML('/working/scene.xml');
+            this.mjModel = this.mujoco.MjModel.from_xml_path('/working/scene.xml');
             this.mjData = new this.mujoco.MjData(this.mjModel);
         } catch (e: unknown) {
             throw new Error(`Failed to load model: ${(e as Error).message}`);

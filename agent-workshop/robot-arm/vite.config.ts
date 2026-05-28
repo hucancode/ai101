@@ -8,12 +8,8 @@ export default defineConfig({
     host: '0.0.0.0',
     watch: { usePolling: true, interval: 300 }
   },
-  resolve: {
-    alias: {
-      mujoco_wasm: 'mujoco-js/dist/mujoco_wasm.js'
-    }
-  },
   optimizeDeps: {
-    exclude: ['mujoco-js']
-  }
+    exclude: ['@mujoco/mujoco']
+  },
+  assetsInclude: ['**/*.wasm']
 });

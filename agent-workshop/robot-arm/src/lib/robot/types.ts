@@ -54,7 +54,7 @@ export interface MujocoData {
 }
 
 export interface MujocoModule {
-    MjModel: { loadFromXML: (path: string) => MujocoModel;[key: string]: unknown };
+    MjModel: { from_xml_path: (path: string) => MujocoModel;[key: string]: unknown };
     MjData: new (model: MujocoModel) => MujocoData;
     MjvOption: new () => { delete: () => void;[key: string]: unknown };
     mj_forward: (m: MujocoModel, d: MujocoData) => void;
