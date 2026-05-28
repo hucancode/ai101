@@ -6,7 +6,7 @@ ARM        = os.environ.get("ARM_URL", "http://localhost:3000")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 MODEL      = os.environ.get("MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 Q          = os.environ.get("Q", "Pick up the red cube and put it on the tray.")
-MAX_STEPS  = int(os.environ.get("MAX_STEPS", "30"))
+MAX_STEPS  = int(os.environ.get("MAX_STEPS", "50"))
 
 client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 WORLD, ACTIONS, DONE = {}, deque(maxlen=12), False
@@ -18,8 +18,8 @@ HOVER_DZ = 0.12
 def refresh_world():
     WORLD.update(requests.get(f"{ARM}/api/world").json())
 
-def wait_idle(timeout=None):
-    deadline = time.time() + (timeout if timeout is not None else MOVE_MS / 1000 + 3.0)
+def wait_idle(timeout=5.0):
+    deadline = time.time() + timeout
     streak = 0
     while streak < 2:
         if time.time() > deadline: return

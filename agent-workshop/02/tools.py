@@ -16,7 +16,7 @@ def spec(name, desc, props={}, required=[]):
         "type": "object", "properties": props, "required": required}}}}
 
 TOOLS = [
-    spec("weather", "Weather for a city. If no city is given, uses the user's current location.",  {"city": {"type": "string"}}),
+    spec("weather", "Weather for a city. If no city is given, default to user's current location.",  {"city": {"type": "string"}}),
 ]
 DISPATCH = {"weather": weather}
 

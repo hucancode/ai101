@@ -17,8 +17,8 @@ HOVER_DZ = 0.12
 def refresh_world():
     WORLD.update(requests.get(f"{ARM}/api/world").json())
 
-def wait_idle(timeout=None):
-    deadline = time.time() + (timeout if timeout is not None else MOVE_MS / 1000 + 3.0)
+def wait_idle(timeout=5.0):
+    deadline = time.time() + timeout
     streak = 0
     while streak < 2:
         if time.time() > deadline: return
