@@ -31,6 +31,11 @@ export class MujocoSim {
     private pickupRaycaster = new THREE.Raycaster();
     private pickupGroundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 
+    private spawnModeEnabled = false;
+    private spawnPointerDown = { x: 0, y: 0, t: 0 };
+    private spawnIndex = 0;
+    private spawnPoolIds: number[] = [];
+
     frameId: number | null = null;
     paused = false;
     gripperActuatorId = -1;
@@ -80,8 +85,86 @@ export class MujocoSim {
         const dom = this.renderSys.renderer.domElement;
         dom.addEventListener('pointerdown', this.onPickupPointerDown);
         dom.addEventListener('pointerup', this.onPickupPointerUp);
+        dom.addEventListener('pointerdown', this.onSpawnPointerDown);
+        dom.addEventListener('pointerup', this.onSpawnPointerUp);
+        dom.addEventListener('contextmenu', this.onSpawnContextMenu);
 
         this.renderSys.initLights();
+    }
+
+    private onSpawnContextMenu = (e: MouseEvent) => {
+        if (this.spawnModeEnabled) e.preventDefault();
+    };
+
+    private onSpawnPointerDown = (e: PointerEvent) => {
+        if (!this.spawnModeEnabled || e.button !== 2) return;
+        e.preventDefault();
+        this.spawnPointerDown.x = e.clientX;
+        this.spawnPointerDown.y = e.clientY;
+        this.spawnPointerDown.t = performance.now();
+    };
+
+    private onSpawnPointerUp = (e: PointerEvent) => {
+        if (!this.spawnModeEnabled || e.button !== 2) return;
+        e.preventDefault();
+        const dx = e.clientX - this.spawnPointerDown.x;
+        const dy = e.clientY - this.spawnPointerDown.y;
+        if (Math.hypot(dx, dy) > 5) return;
+
+        const dom = this.renderSys.renderer.domElement;
+        const rect = dom.getBoundingClientRect();
+        const ndc = new THREE.Vector2(
+            ((e.clientX - rect.left) / rect.width) * 2 - 1,
+            -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        this.pickupRaycaster.setFromCamera(ndc, this.renderSys.camera);
+        const hit = new THREE.Vector3();
+        if (this.pickupRaycaster.ray.intersectPlane(this.pickupGroundPlane, hit)) {
+            this.spawnCubeAt(hit.x, hit.y);
+        }
+    };
+
+    private resolveSpawnPool() {
+        if (!this.mjModel) return;
+        this.spawnPoolIds = [];
+        for (let i = 0; i < this.mjModel.nbody; i++) {
+            const name = getName(this.mjModel, this.mjModel.name_bodyadr[i]);
+            if (name.startsWith('cube_spawn_')) this.spawnPoolIds.push(i);
+        }
+    }
+
+    setSpawnModeEnabled(enabled: boolean) {
+        this.spawnModeEnabled = enabled;
+        const dom = this.renderSys.renderer.domElement;
+        if (enabled) dom.style.cursor = 'cell';
+        else if (!this.pickupClickEnabled) dom.style.cursor = '';
+    }
+
+    isSpawnModeEnabled() { return this.spawnModeEnabled; }
+
+    spawnCubeAt(x: number, y: number) {
+        if (!this.mjModel || !this.mjData) return;
+        if (this.spawnPoolIds.length === 0) this.resolveSpawnPool();
+        if (this.spawnPoolIds.length === 0) return;
+        const bodyId = this.spawnPoolIds[this.spawnIndex % this.spawnPoolIds.length];
+        this.spawnIndex++;
+
+        const jntAdr = this.mjModel.body_jntadr[bodyId];
+        if (jntAdr < 0) return;
+        const qp = this.mjModel.jnt_qposadr[jntAdr];
+        const dofAdrArr = this.mjModel.jnt_dofadr as Int32Array | undefined;
+        const qv = dofAdrArr ? dofAdrArr[jntAdr] : -1;
+        this.mjData.qpos[qp] = x;
+        this.mjData.qpos[qp + 1] = y;
+        this.mjData.qpos[qp + 2] = 1.0;
+        this.mjData.qpos[qp + 3] = 1;
+        this.mjData.qpos[qp + 4] = 0;
+        this.mjData.qpos[qp + 5] = 0;
+        this.mjData.qpos[qp + 6] = 0;
+        const qvel = this.mjData.qvel as Float64Array | undefined;
+        if (qvel && qv >= 0) {
+            for (let i = 0; i < 6; i++) qvel[qv + i] = 0;
+        }
     }
 
     private onPickupPointerDown = (e: PointerEvent) => {
@@ -165,6 +248,7 @@ export class MujocoSim {
             this.firstIkEnable = true;
 
             this.sequenceAnimator.init(this.mjModel, (addr) => getName(this.mjModel!, addr));
+            this.resolveSpawnPool();
 
             this.startLoop();
         }
@@ -192,7 +276,7 @@ export class MujocoSim {
 
         for (let i = 0; i < this.mjModel.nbody; i++) {
             const name = getName(this.mjModel, this.mjModel.name_bodyadr[i]);
-            if (name.startsWith('cube')) {
+            if (name.startsWith('cube') && !name.includes('_spawn')) {
                 let x = 0;
                 let y = 0;
                 let valid = false;
@@ -363,6 +447,7 @@ export class MujocoSim {
         this.mujoco.mj_resetData(this.mjModel, this.mjData);
         this.setInitialPose();
         this.randomizeCubes();
+        this.spawnIndex = 0;
         this.mujoco.mj_forward(this.mjModel, this.mjData);
         this.ikSys.syncToSite(this.mjData);
 
@@ -536,6 +621,9 @@ export class MujocoSim {
         const dom = this.renderSys.renderer.domElement;
         dom.removeEventListener('pointerdown', this.onPickupPointerDown);
         dom.removeEventListener('pointerup', this.onPickupPointerUp);
+        dom.removeEventListener('pointerdown', this.onSpawnPointerDown);
+        dom.removeEventListener('pointerup', this.onSpawnPointerUp);
+        dom.removeEventListener('contextmenu', this.onSpawnContextMenu);
         dom.style.cursor = '';
         this.renderSys.dispose();
         this.ikSys.dispose();

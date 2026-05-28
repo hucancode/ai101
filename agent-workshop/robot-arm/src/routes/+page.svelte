@@ -9,6 +9,10 @@
   import Grip from 'lucide-svelte/icons/grip';
   import PanelRightClose from 'lucide-svelte/icons/panel-right-close';
   import PanelRightOpen from 'lucide-svelte/icons/panel-right-open';
+  import RotateCcw from 'lucide-svelte/icons/rotate-ccw';
+  import Pause from 'lucide-svelte/icons/pause';
+  import Play from 'lucide-svelte/icons/play';
+  import Boxes from 'lucide-svelte/icons/boxes';
   import type { Command, RobotState } from '$lib/robot/types';
   import type { MujocoSim as MujocoSimType } from '$lib/robot/MujocoSim';
   import type { SceneMode } from '$lib/robot/RobotLoader';
@@ -42,6 +46,7 @@
   let darkMode = true;
   let ikGizmo = false;
   let pickGizmo = false;
+  let spawnMode = false;
   let ikPos = { x: 0, y: 0, z: 0 };
   let pickPos = { x: 0.4, y: -0.1, z: 0.04 };
 
@@ -53,6 +58,23 @@
   let sceneMode: SceneMode = 'standard';
   let sceneReloading = false;
   const SCENE_MODES: SceneMode[] = ['clean', 'standard', 'cluttered', 'chaos', 'impossible'];
+
+  type ToolMode = 'easy' | 'medium' | 'hard';
+  const TOOL_MODES: ToolMode[] = ['easy', 'medium', 'hard'];
+  let toolMode: ToolMode = 'easy';
+  $: pickLocVisible = toolMode === 'easy';
+  $: pickPlaceVisible = toolMode === 'easy';
+  $: pickVisible = toolMode !== 'hard';
+  $: placeVisible = toolMode !== 'hard';
+
+  function selectToolMode(m: ToolMode) {
+    toolMode = m;
+    try { localStorage.setItem('toolMode', m); } catch (_) { /* ignore */ }
+    if (m !== 'easy' && pickGizmo) {
+      pickGizmo = false;
+      sim?.setPickupGizmoVisible(false);
+    }
+  }
   let mujocoModule: unknown = null;
   let MujocoSimCtor: typeof import('$lib/robot/MujocoSim').MujocoSim | null = null;
 
@@ -75,6 +97,12 @@
     if (!sim || !isLeader) return;
     pickGizmo = !pickGizmo;
     sim.setPickupGizmoVisible(pickGizmo);
+  }
+
+  function toggleSpawnMode() {
+    if (!sim || !isLeader) return;
+    spawnMode = !spawnMode;
+    sim.setSpawnModeEnabled(spawnMode);
   }
 
   function runAtGizmo(mode: 'pickup' | 'place' | 'both') {
@@ -178,6 +206,7 @@
         if (isLeader) {
           ikGizmo = false;
           pickGizmo = false;
+          spawnMode = false;
         }
       }
     } catch (_) { /* transient */ }
@@ -229,6 +258,7 @@
     sim.setIkEnabled(false);
     ikGizmo = false;
     pickGizmo = false;
+    spawnMode = false;
     loadStatus = '';
     sim.setViewerMode(!isLeader);
   }
@@ -270,6 +300,11 @@
       try {
         const stored = localStorage.getItem('sceneMode') as SceneMode | null;
         if (stored && SCENE_MODES.includes(stored)) sceneMode = stored;
+      } catch (_) { /* ignore */ }
+
+      try {
+        const storedTool = localStorage.getItem('toolMode') as ToolMode | null;
+        if (storedTool && TOOL_MODES.includes(storedTool)) toolMode = storedTool;
       } catch (_) { /* ignore */ }
 
       await claimLease();
@@ -328,6 +363,7 @@
     >
       <Move3d size={20} />
     </button>
+    {#if pickLocVisible}
     <button
       class="hud-btn"
       class:on={pickGizmo}
@@ -338,7 +374,20 @@
     >
       <MapPin size={20} />
     </button>
+    {/if}
+    <button
+      class="hud-btn"
+      class:on={spawnMode}
+      on:click={toggleSpawnMode}
+      disabled={!isLeader}
+      title="Spawn mode (right-click ground to drop blue cube)"
+      aria-label="Spawn mode"
+    >
+      <Boxes size={20} />
+    </button>
+    {#if pickVisible || placeVisible || pickPlaceVisible}
     <span class="hud-group">
+      {#if pickVisible}
       <button
         class="hud-btn"
         on:click={() => runAtGizmo('pickup')}
@@ -348,6 +397,8 @@
       >
         <ArrowUpFromDot size={20} />
       </button>
+      {/if}
+      {#if placeVisible}
       <button
         class="hud-btn"
         on:click={() => runAtGizmo('place')}
@@ -357,6 +408,8 @@
       >
         <ArrowDownToDot size={20} />
       </button>
+      {/if}
+      {#if pickPlaceVisible}
       <button
         class="hud-btn"
         on:click={() => runAtGizmo('both')}
@@ -365,6 +418,30 @@
         aria-label="Pickup and Place"
       >
         <Workflow size={20} />
+      </button>
+      {/if}
+    </span>
+    {/if}
+    <span class="hud-group">
+      <button
+        class="hud-btn"
+        on:click={() => postJson('/api/reset')}
+        title="Reset"
+        aria-label="Reset"
+      >
+        <RotateCcw size={20} />
+      </button>
+      <button
+        class="hud-btn"
+        on:click={() => postJson('/api/pause', { paused: !(state?.paused ?? false) })}
+        title={state?.paused ? 'Resume' : 'Pause'}
+        aria-label={state?.paused ? 'Resume' : 'Pause'}
+      >
+        {#if state?.paused}
+          <Play size={20} />
+        {:else}
+          <Pause size={20} />
+        {/if}
       </button>
     </span>
     <span class="hud-slider" title="Gripper Aperture">
@@ -474,12 +551,19 @@
     </section>
 
     <section>
-      <div class="row">
-        <button on:click={() => postJson('/api/reset')}>Reset</button>
-        <button on:click={() => postJson('/api/pause', { paused: !(state?.paused ?? false) })}>
-          {state?.paused ? 'Resume' : 'Pause'}
-        </button>
+      <h2>Tools</h2>
+      <div class="scene-grid tool-grid">
+        {#each TOOL_MODES as m}
+          <button
+            class="scene-btn"
+            class:on={toolMode === m}
+            on:click={() => selectToolMode(m)}
+          >{m}</button>
+        {/each}
       </div>
+      <p class="hint">
+        {#if toolMode === 'easy'}all tools visible{:else if toolMode === 'medium'}pickup location + pick-and-place hidden{:else}pickup, place, pickup-and-place, pickup location hidden{/if}
+      </p>
     </section>
 
     <section>
@@ -732,6 +816,7 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 0.3rem;
   }
+  .tool-grid { grid-template-columns: repeat(3, 1fr); }
   .scene-btn {
     background: #1e293b;
     color: #cbd5e1;

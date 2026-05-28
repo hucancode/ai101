@@ -121,6 +121,17 @@ export class RobotLoader {
             out += `<body name="cube${i}" pos="${x.toFixed(3)} ${y.toFixed(3)} ${z}"><freejoint/><geom type="box" size="${size}" rgba="${color}" mass="0.05" friction="1.5 0.3 0.1" solref="0.01 1" solimp="0.95 0.99 0.001 0.5 2" condim="4"/></body>`;
         }
         out += `<body name="stack_base" pos="0.6 0 0.0"><geom type="box" size="0.1 0.1 0.005" rgba="0.3 0.3 0.3 1"/></body>`;
+
+        const POOL = 50;
+        const PARK_X = 20;
+        const PARK_Y = 20;
+        const poolHalf = 0.02;
+        const poolSize = `${poolHalf} ${poolHalf} ${poolHalf}`;
+        for (let i = 0; i < POOL; i++) {
+            const px = (PARK_X + (i % 10) * 0.1).toFixed(3);
+            const py = (PARK_Y + Math.floor(i / 10) * 0.1).toFixed(3);
+            out += `<body name="cube_spawn_${i}" pos="${px} ${py} 0.02"><freejoint/><geom type="box" size="${poolSize}" rgba="0 0 1 1" mass="0.05" friction="1.5 0.3 0.1" solref="0.01 1" solimp="0.95 0.99 0.001 0.5 2" condim="4"/></body>`;
+        }
         return out;
     }
 
