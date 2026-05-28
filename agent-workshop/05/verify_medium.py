@@ -8,7 +8,7 @@ AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 # MODEL      = os.environ.get("MODEL", "us.anthropic.claude-sonnet-4-6")
 MODEL      = os.environ.get("MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 Q          = os.environ.get("Q", "Pick up the red cube and put it on the tray.")
-MAX_STEPS  = int(os.environ.get("MAX_STEPS", "30"))
+MAX_STEPS  = int(os.environ.get("MAX_STEPS", "50"))
 
 client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 WORLD, ACTIONS = {}, deque(maxlen=12)
