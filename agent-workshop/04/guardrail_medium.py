@@ -65,7 +65,6 @@ TOOLS = [
 DISPATCH = {"done": t_done, "move_to": t_move_to, "pickup": t_pickup, "place": t_place}
 SPECS = {t["toolSpec"]["name"]: t["toolSpec"]["inputSchema"]["json"] for t in TOOLS}
 SYS = ("Drive a robot arm. Workflow: move_to (above a cube) → pickup → place → done. "
-       "RECENT_ACTIONS includes errors if a call was rejected. "
        "Pick exactly one tool per turn.")
 
 def validate(name, args):

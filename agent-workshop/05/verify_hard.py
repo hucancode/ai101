@@ -107,9 +107,7 @@ DISPATCH = {"move_to_cube": t_move_to_cube, "move_to_tray": t_move_to_tray,
             "open_grip": t_open_grip, "close_grip": t_close_grip, "dip": t_dip}
 SPECS = {t["toolSpec"]["name"]: t["toolSpec"]["inputSchema"]["json"] for t in TOOLS}
 SYS = ("Drive a robot arm. Pickup: open_grip → move_to_cube → dip → close_grip → move_to_tray → "
-       "open_grip. Verifier ends the task when a cube is on a tray. "
-       "RECENT_ACTIONS includes errors if a call was rejected. "
-       "Pick exactly one tool per turn.")
+       "open_grip. Pick exactly one tool per turn.")
 
 def task_complete():
     return any(t["cubes"] for t in WORLD.get("trays", [])) and not WORLD.get("holding")

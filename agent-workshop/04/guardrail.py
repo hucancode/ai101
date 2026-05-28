@@ -38,8 +38,7 @@ TOOLS = [
 ]
 DISPATCH = {"done": t_done, "pickup": t_pickup}
 SPECS = {t["toolSpec"]["name"]: t["toolSpec"]["inputSchema"]["json"] for t in TOOLS}
-SYS = ("Drive a robot arm. RECENT_ACTIONS includes errors if a call was rejected. "
-       "Call done when complete. Pick exactly one tool per turn.")
+SYS = ("Drive a robot arm. Call done when complete. Pick exactly one tool per turn.")
 
 def validate(name, args):
     if name not in SPECS: raise ValueError(f"unknown tool {name!r}")

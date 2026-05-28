@@ -69,8 +69,7 @@ DISPATCH = {"done": t_done, "move_to_cube": t_move_to_cube, "move_to_tray": t_mo
             "open_grip": t_open_grip, "close_grip": t_close_grip, "dip": t_dip}
 SPECS = {t["toolSpec"]["name"]: t["toolSpec"]["inputSchema"]["json"] for t in TOOLS}
 SYS = ("Drive a robot arm. Pickup: open_grip → move_to_cube → dip → close_grip → move_to_tray → "
-       "open_grip → done. RECENT_ACTIONS includes errors if a call was rejected. "
-       "Pick exactly one tool per turn.")
+       "open_grip → done. Pick exactly one tool per turn.")
 
 def validate(name, args):
     if name not in SPECS: raise ValueError(f"unknown tool {name!r}")

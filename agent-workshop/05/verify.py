@@ -36,7 +36,6 @@ TOOLS = [
 DISPATCH = {"pickup": t_pickup}
 SPECS = {t["toolSpec"]["name"]: t["toolSpec"]["inputSchema"]["json"] for t in TOOLS}
 SYS = ("Drive a robot arm. Verifier ends the task when a cube is on a tray. "
-       "RECENT_ACTIONS includes errors if a call was rejected. "
        "Pick exactly one tool per turn.")
 
 def task_complete():
