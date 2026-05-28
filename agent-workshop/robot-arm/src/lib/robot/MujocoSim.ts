@@ -208,6 +208,12 @@ export class MujocoSim {
         this.pickupItems([p], [Date.now()], undefined, mode);
     }
 
+    pickupHere() {
+        const t = this.ikSys.target.position;
+        const p = new THREE.Vector3(t.x, t.y, this.pickupGizmo.position.z);
+        this.pickupItems([p], [Date.now()], undefined, 'pickup');
+    }
+
     async init(onProgress?: (msg: string) => void, sceneMode: SceneMode = 'standard') {
         this.sceneMode = sceneMode;
         const loader = new RobotLoader(this.mujoco, sceneMode);

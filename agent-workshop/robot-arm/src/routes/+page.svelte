@@ -111,6 +111,11 @@
     sim.pickupAtGizmo(mode);
   }
 
+  function pickupHere() {
+    if (!sim || !isLeader) return;
+    sim.pickupHere();
+  }
+
   async function postJson(url: string, body?: unknown) {
     const res = await fetch(url, {
       method: 'POST',
@@ -390,10 +395,10 @@
       {#if pickVisible}
       <button
         class="hud-btn"
-        on:click={() => runAtGizmo('pickup')}
-        disabled={!isLeader || !pickGizmo}
-        title="Pickup at Marker"
-        aria-label="Pickup at Marker"
+        on:click={pickupHere}
+        disabled={!isLeader}
+        title="Pick up"
+        aria-label="Pick up"
       >
         <ArrowUpFromDot size={20} />
       </button>

@@ -283,11 +283,20 @@ export class SequenceAnimator {
 
                 this.curCubeIdx++;
 
-                // place-only handles one cube per invocation; pickup/both can chain across targets
+                // pickup-only ends after lift, no home return, no chaining
+                if (this.mode === 'pickup') {
+                    this.running = false;
+                    this.step = 0;
+                    this.curCubeIdx = 0;
+                    if (this.onFinished) this.onFinished();
+                    return;
+                }
+
+                // place-only handles one cube per invocation; both can chain across targets
                 if (this.mode !== 'place' &&
                     ((this.useLivePosition && this.curCubeIdx < this.cubeIds.length) ||
                      (!this.useLivePosition && this.curCubeIdx < this.targetPositions.length))) {
-                    this.step = this.mode === 'pickup' ? 0 : 0;
+                    this.step = 0;
                     this.prepareStep(ikTarget, mjData, ikSystem);
                     return;
                 }
@@ -295,7 +304,7 @@ export class SequenceAnimator {
                 // No more cubes - Return to Home
                 this.duration = 2.0;
                 this.targetPos.set(0, 0, 0.45);
-                this.targetQuat.setFromEuler(new THREE.Euler(Math.PI, 0, 0)); 
+                this.targetQuat.setFromEuler(new THREE.Euler(Math.PI, 0, 0));
                 this.gripperVal = 255;
 
                 // EXPLICIT HOME JOINTS (Skip IK)
