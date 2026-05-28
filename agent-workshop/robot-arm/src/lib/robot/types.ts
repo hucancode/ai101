@@ -9,6 +9,7 @@ export interface MujocoModel {
     nsite: number;
     nu: number;
     njnt: number;
+    nv: number;
     name_siteadr: Int32Array;
     name_actuatoradr: Int32Array;
     name_bodyadr: Int32Array;
@@ -39,6 +40,7 @@ export interface MujocoModel {
 export interface MujocoData {
     time: number;
     qpos: Float64Array;
+    qvel: Float64Array;
     ctrl: Float64Array;
     xfrc_applied: Float64Array;
     xpos: Float64Array;
