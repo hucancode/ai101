@@ -3,12 +3,11 @@ import os, json, time, requests, boto3
 from collections import deque
 
 ARM        = os.environ.get("ARM_URL", "http://localhost:3000")
-AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 MODEL      = os.environ.get("MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 Q          = os.environ.get("Q", "Pick up the red cube.")
 MAX_STEPS  = int(os.environ.get("MAX_STEPS", "30"))
 
-client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+client = boto3.client("bedrock-runtime")
 WORLD, ACTIONS, DONE = {}, deque(maxlen=12), False
 
 def refresh_world():
@@ -40,7 +39,6 @@ TOOLS = [
 DISPATCH = {"done": t_done, "pickup": t_pickup}
 SPECS = {t["toolSpec"]["name"]: t["toolSpec"]["inputSchema"]["json"] for t in TOOLS}
 SYS = ("Drive a robot arm. RECENT_ACTIONS includes errors if a call was rejected. "
-       "Repeating the previous successful call is rejected as duplicate — vary args or pick a different tool. "
        "Call done when complete. Pick exactly one tool per turn.")
 
 def validate(name, args):
@@ -68,8 +66,7 @@ def run():
         r = client.converse(modelId=MODEL,
             messages=[{"role": "user", "content": [{"text": build_user()}]}],
             system=[{"text": SYS}],
-            toolConfig={"tools": TOOLS, "toolChoice": {"any": {}}},
-            inferenceConfig={"maxTokens": 1024})
+            toolConfig={"tools": TOOLS, "toolChoice": {"any": {}}})
         tu = next((b["toolUse"] for b in r["output"]["message"]["content"] if "toolUse" in b), None)
         if not tu: print("no tool call"); ACTIONS.append({"error": "no tool call"}); continue
         name, args = tu["name"], tu["input"]
