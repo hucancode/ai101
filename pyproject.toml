@@ -10,4 +10,8 @@ dependencies = [
     "playwright>=1.48.0",
     "boto3>=1.35.0",
     "botocore[crt]>=1.35.0",
+    "datasets>=4.8.5",
+    "tiktoken>=0.13.0",
+    "ollama>=0.6.2",
+    "z3-solver>=4.16.0.0",
 ]
