@@ -1,5 +1,5 @@
 import { createViewer, createDrawer } from "./render.js";
-import { atlasModel, ATLAS_POSE, ATLAS_POSE_DEPTH, ATLAS_MONTAGES } from "./rig.js";
+import { atlasModel, ATLAS_POSE, ATLAS_POSE_DEPTH } from "./rig.js";
 import { createChoreographer } from "./choreo.js";
 
 // The choreographer drives the rig's POSE SLIDERS, not the geometry: every
@@ -33,7 +33,7 @@ const budgets = [
 
 const home = Object.fromEntries(KEYS.map((k) => [k, 0]));
 const pose = { ...ATLAS_POSE };
-const choreo = createChoreographer(sliders, { home, montages: ATLAS_MONTAGES, budgets, seed: SEED });
+const choreo = createChoreographer(sliders, { home, budgets, seed: SEED });
 
 // ---- panel: one range input per channel, two-way bound to `pose` ------------
 const panel = document.getElementById("params");
@@ -51,14 +51,6 @@ const rows = KEYS.map((key) => {
   panel.appendChild(row);
   return { key, input, val };
 });
-
-const bar = document.getElementById("montages");
-for (const name of Object.keys(ATLAS_MONTAGES)) {
-  const b = document.createElement("button");
-  b.textContent = name;
-  b.addEventListener("click", () => choreo.play(name));
-  bar.appendChild(b);
-}
 
 const viewer = createViewer(document.getElementById("view"), { camDist: 7, camHeight: 0.5, target: [0, 1.8, 0] });
 const drawer = createDrawer(viewer.scene);

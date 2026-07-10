@@ -45,13 +45,6 @@ const wave = (setup, lead) => ({
   stepRatio: 0.3, loops: 4,
 });
 
-export const ATLAS_MONTAGES = {
-  // arms out level with the shoulders, ripple running down each one
-  armWave: wave({ armOut: 90 }, { armOut: 115 }),
-  // arms held out front, the ripple travelling away from the chest
-  frontWave: wave({ shoulder: 90 }, { shoulder: 115 }),
-};
-
 // `angles` maps a bone axis of the link's 3-DOF joint to [pose key, sign];
 // `curl` marks the finger links whose part rebuilds with the internal-digit
 // pose channel fed from the knuckle bone. `swingBone` marks a link that owns

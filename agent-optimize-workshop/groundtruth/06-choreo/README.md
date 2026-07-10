@@ -22,12 +22,6 @@ A beat is usually **improvised**, out of two groups of sliders:
   *move-hit*: a dead-linear travel aimed PAST the target, then an `outBounce`
   that reels it back down onto it exactly.
 
-Sometimes the beat is **rehearsed** instead: with a small chance every slider
-bounces home to the rest pose, or a **montage** runs — a setup pose struck with
-the same bounce, then a sequence of keyframes played through. A montage owns the
-clock for as long as it lasts; no beat interrupts it. `play(name)` queues one by
-hand, cutting the current beat short.
-
 Which sliders are "big" is not a hand-kept list: a pose channel drives the link
 it sits on, so its depth IS that link's chain depth. The rig exports
 `ATLAS_POSE_DEPTH`, and the demo calls everything at depth ≤ 2 big.
@@ -48,9 +42,9 @@ it sits on, so its depth IS that link's chain depth. The rig exports
 ## Scope
 
 In scope: `choreo.js` — `CHOREO_TIMING`, the `moveBounce` ease, grid target
-selection, Fisher-Yates sampling, montage/home planning, and
-`createChoreographer(sliders, { home, montages, budgets, seed, ...timing })`
-returning `{ step(dt, pose), play(name) }`. Beats are drawn from the seeded
+selection, Fisher-Yates sampling, home planning, and
+`createChoreographer(sliders, { home, budgets, seed, ...timing })`
+returning `{ step(dt, pose) }`. Beats are drawn from the seeded
 PRNG (`mulberry32`, in `math.js`), so a run is reproducible.
 
 Out of scope: everything already built (01–05). The rig is untouched; the
@@ -62,7 +56,6 @@ choreographer only writes its pose object.
 createChoreographer(
   sliders,   // [{ key, min, max, big }] — `big` marks the root-near bones
   { home,       // rest pose the rig occasionally snaps back to
-    montages,   // { name: { setup, sequence, stepRatio, loops } }
     budgets,    // [{ keys, limit }] — channels sharing a joint, total rotation allowed
     seed, ...CHOREO_TIMING overrides },
 )

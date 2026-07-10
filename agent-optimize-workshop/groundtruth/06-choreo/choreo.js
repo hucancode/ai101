@@ -8,10 +8,6 @@
 //   main         — 1 BIG slider (root-near bone: waist, shoulder, neck) played
 //                  move-hit: a dead-linear travel aimed PAST the target, then
 //                  a bounce that reels it back down onto it.
-// Sometimes it plans something rehearsed instead: every slider bounces home to
-// the rest pose, or a MONTAGE runs — a setup pose struck with the same bounce,
-// then a sequence of keyframes played through. A montage owns the clock for as
-// long as it lasts; no beat interrupts it.
 //
 // The beat mutates the pose object in place, so whatever binds those sliders
 // (the mech playground's range inputs) tracks the motion for free. Targets are
@@ -32,8 +28,6 @@ export const CHOREO_TIMING = {
                       // of the distance it covers
 };
 const HOME_CHANCE = 0.05;      // odds a beat is a snap back to the rest pose
-const MONTAGE_CHANCE = 0.1;    // odds a beat is a rehearsed montage instead
-const SETUP_RATIO = 0.8;       // beats a montage spends striking its setup pose
 
 // an ease like any other, except it leaves [0,1] on the way: constant speed out
 // past the target, then outBounce hauls it back to exactly 1
@@ -70,13 +64,12 @@ function sample(rnd, pool, n) {
 /**
  * @param sliders  [{ key, min, max, big }] — `big` marks the root-near bones
  * @param home     rest pose the rig occasionally snaps back to
- * @param montages { name: { setup, sequence, stepRatio, loops } } routines
  * @param budgets  [{ keys, limit }] — channels sharing one joint, and the total
  *                 rotation they may spend between them
  * @param timing   any CHOREO_TIMING key, overriding its default
  */
 export function createChoreographer(
-  sliders, { home = {}, montages = {}, budgets = [], seed = 1, ...timing } = {},
+  sliders, { home = {}, budgets = [], seed = 1, ...timing } = {},
 ) {
   const { period, anticRatio, restRatio, bounceTime, bouncePower } =
     { ...CHOREO_TIMING, ...timing };
@@ -87,25 +80,8 @@ export function createChoreographer(
   const rnd = mulberry32(seed);
   const small = sliders.filter((s) => !s.big);
   const big = sliders.filter((s) => s.big);
-  const routines = Object.values(montages);
   let clock = 0, span = 0;   // time into the current beat, and its length
   let tracks = [];
-  let queued = null;         // a montage the caller asked for by hand
-
-  // setup pose struck like any main move, then the sequence walked keyframe by
-  // keyframe; each keyframe is a partial pose, and only the keys it names move
-  const montage = (cut, { setup, sequence, stepRatio = 0.35, loops = 1 }) => {
-    let t = 0;
-    for (const [key, to] of Object.entries(setup)) cut(key, to, t, SETUP_RATIO * period, hit);
-    t += SETUP_RATIO * period;
-    const stepDur = stepRatio * period;
-    for (let i = 0; i < loops; i++)
-      for (const frame of sequence) {
-        for (const [key, to] of Object.entries(frame)) cut(key, to, t, stepDur, eases.inOutSine);
-        t += stepDur;
-      }
-    return t + restRatio * period;
-  };
 
   // every slider drops what it was doing and bounces back to the rest pose
   const snapHome = (cut, cur) => {
@@ -114,8 +90,7 @@ export function createChoreographer(
   };
 
   // A plan is a track list plus the time the whole thing takes: an improvised
-  // beat and a home snap each fill one period, a montage runs as long as it
-  // needs to. `cur` shadows the pose as the plan is laid out, so a key written
+  // beat and a home snap each fill one period. `cur` shadows the pose as the plan is laid out, so a key written
   // twice (a wave passing back through the same joint) starts each leg where
   // the last one left it.
   const plan = (pose) => {
@@ -125,17 +100,9 @@ export function createChoreographer(
       tracks.push({ key, to, t0, dur, ease, from: cur[key] });
       cur[key] = to;
     };
-    if (queued) {
-      const m = queued;
-      queued = null;
-      return montage(cut, m);
-    }
-    const roll = rnd();
     // now and then the rig drops everything and snaps home on its own, so the
     // improvised beats don't wander ever further from the rest pose
-    if (roll < HOME_CHANCE) return snapHome(cut, cur);
-    if (roll < HOME_CHANCE + MONTAGE_CHANCE && routines.length)
-      return montage(cut, sample(rnd, routines, 1)[0]);
+    if (rnd() < HOME_CHANCE) return snapHome(cut, cur);
 
     const n = 1 + ((rnd() * Math.min(3, small.length)) | 0);
     for (const s of sample(rnd, small, n))
@@ -171,12 +138,6 @@ export function createChoreographer(
         const spent = keys.reduce((a, k) => a + Math.abs(pose[k]), 0);
         if (spent > limit) for (const k of keys) pose[k] *= limit / spent;
       }
-    },
-    /** run a montage by name at the next beat, cutting the current one short */
-    play(name) {
-      if (!montages[name]) return;
-      queued = montages[name];
-      clock = span;   // the running beat ends here
     },
   };
 }

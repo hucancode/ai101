@@ -95,9 +95,6 @@ and both feet face +Z.
   0), and `an` (the **world assembly normal**: the link's mount-slot normal in
   world space, negated — the side the part approaches from). Problem 05 consumes
   all three.
-- `ATLAS_POSE_DEPTH` derives each pose channel's chain depth from the skeleton,
-  and `ATLAS_MONTAGES` holds rehearsed keyframe routines. Problem 06 consumes
-  both.
 
 ## Scope
 
