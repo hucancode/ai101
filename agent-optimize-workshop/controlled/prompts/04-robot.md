@@ -152,13 +152,13 @@ work. Only parts with a live pose channel rebuild geometry: the fingers, and the
 
 **Item tags.** Every item carries `group` (`link:jointGroup`), `depth` (chain
 depth, root 0), and `an` — the **world assembly normal**: the link's mount-slot
-normal in world space, negated. The side the part approaches from. Problem 05 eats
-all three.
+normal in world space, negated. The side the part approaches from. A build
+animation eats all three.
 
 **Exports for later.** `ATLAS_POSE_DEPTH` derives each pose channel's chain depth
 from the skeleton — a channel drives the link it sits on, so its depth IS that
-link's depth. `ATLAS_MONTAGES` holds rehearsed keyframe routines. Problem 06 eats
-both.
+link's depth. `ATLAS_MONTAGES` holds rehearsed keyframe routines. A pose driver
+eats both.
 
 ## Pose channels — 14, degrees
 
@@ -185,5 +185,3 @@ grippers, 2 legs with feet. Right side mirrors left. Every mechanism stays meshe
 at any pose in slider range — tongues inside their clevises, balls in their
 sockets. Static parts reuse their captured template; no per-frame geometry
 regeneration outside the flagged links.
-
-Out of scope: assembly animation (05), choreography (06).

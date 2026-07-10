@@ -9,7 +9,7 @@ list: items not yet spawned dropped, moving items with displaced `m` / `t` and a
 alpha `a`. `u ≤ 0` → nothing. `u ≥ 1` → the exact input model.
 
 The build is **hierarchical**. Four phases per sub-assembly group — a part body or
-a joint block, i.e. the `group` tag from 04:
+a joint block, i.e. an item's `group` tag:
 
 1. **Fly-in** — each primitive flies from a hashed scatter point to a small
    standoff near its seat in the group. Self-spinning, unwinding to exactly 0 as
@@ -51,11 +51,11 @@ In scope: `assembly.js` — `ASSEMBLY`, group bookkeeping, `assembleModel`. And
 body over build progress, so a group can home onto a mount point that is itself in
 motion. Build it; this demo exercises it with a static body.
 
-Out of scope: everything already built (01–04). Choreography (06).
+Out of scope: everything already built. Choreography.
 
 ## Data contract
 
-In: 04's items — `{ key, mesh, m, t, color, group, an, depth }`.
+In: the rig's items — `{ key, mesh, m, t, color, group, an, depth }`.
 Out: same shape, plus `a` (alpha; the harness fades on it).
 
 ## Deliver

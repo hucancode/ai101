@@ -29,7 +29,7 @@ someBlock(fixed, moving, params, pose)   // fixed, moving: (handle) => void
 around the joint's **local origin** (pin axis, or ball center).
 
 Runtime `pose` articulates by **wrapping channels** — route male handles through a
-rotation before they reach `moving`. Articulation = channel routing + 02's
+rotation before they reach `moving`. Articulation = channel routing + the existing
 transform algebra. No new geometry machinery. A piece that rotates while the rest
 of its half stays put gets its own wrapped sub-channel.
 

@@ -14,6 +14,27 @@ Mesh generated at **unit proportions**. Real size lives in the starting scale
 matrix. After generation, no vertex work ever again — placement composes into
 `m` / `t`.
 
+## Shape identities
+
+- **`key`** = unit-mesh identity. Builder name + shape ratios + segment counts.
+  Size excluded. One mesh generated per key into a module-level registry; every
+  handle with that key shares that one mesh object. `meshOf(key)` looks it up.
+- **`id`** = shape identity **with** size: key + creation scale. Rotation and
+  translation never change it. Consumers color by `id`, so identical pieces match
+  like lego part numbers.
+
+Quantize params before they enter a key or an id, else float noise splits them.
+
+## Parameters
+
+Shape params are ratios wherever possible, so width / height / depth / radius stay
+**pure scale axes**:
+
+- box `slope` = fraction of height
+- `coneCut` taper = `r1/r0`
+- `cutHemisphere` `t` and `cut` = fractions of `r`
+- arch box `depth` = fraction of `r`
+
 ## Transform algebra
 
 Chainable. Matrix composition only, never vertex work.
@@ -23,10 +44,10 @@ Chainable. Matrix composition only, never vertex work.
   a handle moves rigidly about the current origin
 - `bake(h)` → finalized `{ key, id, mesh, m, t }` for the item list
 
-## Builder catalog — 12
+## Builder catalog
 
 ```js
-box(w, h, d, slope, curve) 
+box(w, h, d, slope, curve)
 cylinder(r, h, seg)
 coneCut(r0, r1, h, seg)
 sphere(r, seg, rings)
@@ -35,18 +56,16 @@ cutHemisphere(r, t, cut, seg, rings)
 halfCylinder(r, h, seg)
 halfCylinderBox(r, h, depth, seg)
 ```
+## Data contract
 
-Every parameter has a sensible default. Bare `box()` works.
+```js
+items: [{ mesh: { positions, normals }, m: [9 /* row-major 3x3 */], t: [x, y, z],
+          color?: [r, g, b] }]
+```
 
-New generators:
-
-- **cutHemisphere** — socket shell. Outer dome, inner cavity, lip ring closing the
-  opening, base ring closing the cut. `t` = wall thickness. `cut` = the height of
-  the **horizontal cut plane** — one plane, cutting both surfaces.
-- **halfCylinder / quarterCylinder** — partial arc sweeps, closed by flat walls on
-  the cut faces.
-- **halfCylinderBox** — arch box: half cylinder capping a box. A D-plate on its
-  side.
+`drawer.draw(items)` per frame. A baked handle IS an item — it carries its
+registry mesh by reference, so it draws as-is, and identical shapes cost one mesh,
+not N.
 
 ## Deliver
 
