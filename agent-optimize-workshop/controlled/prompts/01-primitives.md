@@ -1,7 +1,7 @@
 ## Task
 
-Make 3D primitive meshes from scratch, then a **builder layer** over them. Raw
-triangle soup. No mesh library. Your code computes every position, every normal.
+Make 3D primitive meshes from scratch, then a **builder layer** over them.
+Your code computes every position, every normal.
 
 Mesh = `{ positions: Float32Array, normals: Float32Array }`. 3 floats per vertex,
 3 vertices per triangle, no index buffer.
@@ -13,28 +13,21 @@ Two normal disciplines:
 - **curved surface** (cylinder wall, cone flank, sphere) — per-vertex surface
   normal. Shades smooth, no faceting.
 
-Winding CCW seen from outside. Harness culls back faces. Inside-out triangle
-shows as hole or dark patch.
-
-Soup helpers — empty soup, flat triangle, smooth triangle, quad, merge,
-translate-in-place. Every generator uses them.
+Winding CCW seen from outside. 
 
 ## Generators
 
 Origin conventions load-bearing. Consumers seat shapes by their origin.
 
 - **box** — unit proportions, centered on origin. `slope` = fraction of height
-  dropped at the top face's **front (+Z) edge**; top becomes a ramp, front wall
-  shortens, side walls become trapezoids. `curve` bends that ramp, −1 concave ..
-  +1 convex; needs the ramp subdivided.
+  dropped at the top face's **front (+Z) edge**; top becomes a ramp.
+`curve` (-1, 1) bends that ramp
 - **cylinder** — arc sweep. Side wall swept about +Y, radial per-vertex normals.
   Cap fans top and bottom, from the axis. Origin = base circle center, body spans
   y 0..h. A **swept angle range** gives the half cylinder from the same sweep.
-- **truncated cone** — base radius at y=0, top radius at y=h. Flank normals **tilt
-  with the slope**, never radial.
+- **truncated cone** — base radius at y=0, top radius at y=h.
 - **sphere / hemisphere** — lathe. Polar angle swept from the pole, rings ×
-  segments. On a unit sphere the position IS the normal. Hemisphere origin = base
-  circle center, dome up, base closed by a downward disc.
+  segments. Hemisphere origin = base circle center, dome up.
 - **cut hemisphere** — socket shell. Outer dome, inner cavity, lip ring closing
   the opening, base ring closing the cut. `t` = wall thickness. `cut` = the height
   of the **horizontal cut plane** — one plane, cutting both surfaces.
@@ -49,11 +42,7 @@ against each other. A builder call returns a **handle**:
 { key, id, mesh: { positions, normals }, m: [9 /* row-major 3x3 linear */], t: [x, y, z] }
 ```
 
-Mesh generated at **unit proportions**. Real size lives in the starting scale
-matrix. After generation, no vertex work ever again — placement composes into
-`m` / `t`.
-
-## Two identities. Difference matters.
+## Two identities
 
 - **`key`** = unit-mesh identity. Builder name + shape ratios + segment counts.
   Size excluded. One mesh generated per key into a module-level registry; every
@@ -61,18 +50,9 @@ matrix. After generation, no vertex work ever again — placement composes into
 - **`id`** = shape identity **with** size: key + creation scale. Rotation and
   translation never change it.
 
-Quantize params before they enter a key or an id, else float noise splits them.
-
-## Ratios, not absolutes
-
-Shape params are ratios wherever possible, so width / height / depth / radius stay
-**pure scale axes**: box `slope` = fraction of height; truncated-cone taper =
-`r1/r0`; cut-hemisphere `t` and `cut` = fractions of `r`; arch box `depth` =
-fraction of `r`.
-
 ## Transform algebra
 
-Chainable. Matrix composition only, never vertex work.
+Matrix composition.
 
 - `translate(h, x, y, z)`
 - `rotX / rotY / rotZ (h, angle)` — rotates the matrix **and** the translation, so
@@ -99,19 +79,6 @@ form, for consumers that re-color the same ids every frame.
 One helper — `collect(builderFn, seed, params, pose)` → `{ items, meshes }` — runs
 a builder function, bakes what it emits into colored items, and gathers the unit
 meshes they reference, one per key. Every consumer models through it.
-
-## Harness contract
-
-```js
-items: [{ mesh: { positions, normals }, m: [9 /* row-major 3x3 */], t: [x, y, z],
-          color?: [r, g, b] }]
-```
-
-`drawer.draw(items)` per frame. A baked handle IS an item — it carries its
-registry mesh by reference, so it draws as-is, and identical shapes cost one mesh,
-not N.
-
-The canvas owns the viewport. The control panel floats over it.
 
 ## Deliver
 
