@@ -45,15 +45,12 @@ coneCut(r0, r1, h, seg)           cone(r, h, seg)
 sphere(r, seg, rings)             hemisphere(r, seg, rings)
 cutHemisphere(r, t, cut, seg, rings)   // socket shell; t/cut = fractions of r
 halfCylinder(r, h, seg)           halfCylinderBox(r, h, depth, seg) // arch box
-quarterCylinder(r, h, seg)        boxCylinder(w, boxH, d, cylH, fit, seg)  // stamper
-gear(r, h, teethOut, teethIn)     // toothed ring; a count < 3 leaves that rim flat
+quarterCylinder(r, h, seg)
 ```
 
 New generators beyond 01: `genCutHemisphere` (outer shell + inner cavity +
 lip/base rings), `genHalfCylinder`/`genHalfCylinderBox`/`genQuarterCylinder`
-(arc sweeps + closing walls), `genBoxCylinder` (merge of translated box +
-cylinder), `genGear` (trapezoidal teeth on either rim, sampled at the union
-of both rims' breakpoints so the caps pair 1:1).
+(arc sweeps + closing walls).
 
 ## Scope
 

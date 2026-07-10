@@ -4,8 +4,7 @@ import * as P from "./primitives.js";
 // Interactive parameter inspector: pick a builder, drag its params, watch the
 // mesh and the handle's id (shape identity including size) update live.
 
-// param spec per builder: [min, max, step, initial], or [[options], initial]
-// for an enum
+// param spec per builder: [min, max, step, initial]
 const SPECS = {
   box: { fn: P.box, args: ["w", "h", "d", "slope", "curve"],
     p: { w: [0.2, 2, 0.05, 1], h: [0.2, 2, 0.05, 1], d: [0.2, 2, 0.05, 1], slope: [0, 1, 0.01, 0], curve: [-1, 1, 0.01, 0] } },
@@ -27,12 +26,6 @@ const SPECS = {
     p: { r: [0.1, 1, 0.02, 0.5], h: [0.2, 2, 0.05, 1], depth: [0.05, 1.5, 0.02, 0.5], seg: [3, 32, 1, 12] } },
   quarterCylinder: { fn: P.quarterCylinder, args: ["r", "h", "seg"],
     p: { r: [0.1, 1.2, 0.02, 0.5], h: [0.05, 1, 0.02, 0.3], seg: [2, 24, 1, 8] } },
-  boxCylinder: { fn: P.boxCylinder, args: ["w", "boxH", "d", "cylH", "fit", "seg"],
-    p: { w: [0.2, 2, 0.05, 1], boxH: [0.1, 1.5, 0.05, 0.5], d: [0.2, 2, 0.05, 1], cylH: [0.05, 1.5, 0.02, 0.8], fit: [["in", "out"], "in"], seg: [3, 48, 1, 24] } },
-  // teeth counts under 3 leave that rim flat; tooth depth and hole radius are
-  // fixed fractions of r, so the two counts are the whole shape identity
-  gear: { fn: P.gear, args: ["r", "h", "teethOut", "teethIn"],
-    p: { r: [0.1, 1, 0.02, 0.6], h: [0.05, 1, 0.02, 0.25], teethOut: [0, 24, 1, 12], teethIn: [0, 24, 1, 0] } },
 };
 
 let current = "box";
@@ -53,24 +46,15 @@ sel.addEventListener("change", () => { current = sel.value; buildPanel(); });
 function buildPanel() {
   const spec = SPECS[current];
   panel.innerHTML = "";
-  for (const [k, def] of Object.entries(spec.p)) {
-    values[k] = Array.isArray(def[0]) ? def[1] : def[3];
+  for (const [k, [min, max, step, init]] of Object.entries(spec.p)) {
+    values[k] = init;
     const row = document.createElement("label");
-    if (Array.isArray(def[0])) {                     // enum
-      const s = document.createElement("select");
-      for (const opt of def[0]) { const o = document.createElement("option"); o.value = o.textContent = opt; s.appendChild(o); }
-      s.value = def[1];
-      s.addEventListener("change", () => { values[k] = s.value; });
-      row.append(`${k} `, s);
-    } else {
-      const [min, max, step, init] = def;
-      const s = document.createElement("input");
-      s.type = "range"; s.min = min; s.max = max; s.step = step; s.value = init;
-      const v = document.createElement("span");
-      v.textContent = init;
-      s.addEventListener("input", () => { values[k] = +s.value; v.textContent = s.value; });
-      row.append(`${k} `, s, v);
-    }
+    const s = document.createElement("input");
+    s.type = "range"; s.min = min; s.max = max; s.step = step; s.value = init;
+    const v = document.createElement("span");
+    v.textContent = init;
+    s.addEventListener("input", () => { values[k] = +s.value; v.textContent = s.value; });
+    row.append(`${k} `, s, v);
     panel.appendChild(row);
   }
 }

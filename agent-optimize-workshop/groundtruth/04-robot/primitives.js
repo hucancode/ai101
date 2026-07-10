@@ -13,8 +13,6 @@ import { TAU } from "./math.js";
 //   cutHemisphere   wall t and cut = FRACTIONS of r; key=(t,cut)
 //   halfCylinderBox (arch box) box depth = FRACTION of r in the key; height
 //                   is a free scale axis — same depth ratio => same mesh
-//   boxCylinder     (stamper) cylinder height = FRACTION of box height;
-//                   key=(cylPct,fit) — w/boxH/d are free scale axes
 //   cylinder/sphere/... key = segment counts only, size is all scale
 //
 // Origin conventions (per the catalog spec):
@@ -26,10 +24,6 @@ import { TAU } from "./math.js";
 //                   flat face on the XY plane, body spans y 0..h
 //   halfCylinderBox halfCylinder + a box filling the flat (-Z) side; origin =
 //                   center of the circle forming the cylinder
-//   boxCylinder     box with a cylinder standing on its top face; origin =
-//                   center of the cylinder's base circle (= box top center).
-//                   fit "in"  -> cylinder inscribed in the box footprint
-//                   fit "out" -> cylinder circumscribes the box footprint
 
 const q4 = (v) => +(+v).toFixed(4);
 
@@ -116,12 +110,6 @@ function merge(...gs) {
     out.normals.push(...g.normals);
   }
   return out;
-}
-
-function soupTranslate(g, x, y, z) {
-  const p = g.positions;
-  for (let i = 0; i < p.length; i += 3) { p[i] += x; p[i + 1] += y; p[i + 2] += z; }
-  return g;
 }
 
 // unit box (1x1x1, centered). slope = FRACTION of the height dropped at the
@@ -294,71 +282,6 @@ function genQuarterCylinder(seg) {
   return g;
 }
 
-// unit gear RING: annulus (outer r=1, hole r=GEAR_HOLE) with trapezoidal
-// teeth on the outer rim (To), the inner rim (Ti), or both; a count < 3 means
-// that side is FLAT (circular). Body spans y 0..1 (origin = base center, like
-// cylinder). Tooth depth is a FIXED fraction of r: outer teeth rise from root
-// 1-d to tip 1, inner teeth hang from root GEAR_HOLE inward to its tip.
-// Per tooth the pitch splits root gap / rising flank / tip flat / falling
-// flank; both rims are sampled at the UNION of their profile breakpoints so
-// the caps pair 1:1 across the ring.
-const GEAR_DEPTH = 0.22;   // tooth depth, fraction of r
-const GEAR_HOLE = 0.55;    // hole radius, fraction of r
-
-function genGear(To, Ti) {
-  const g = geo();
-  const dp = GEAR_DEPTH, ri = GEAR_HOLE;
-  // trapezoid rim radius at angle a: root over the gap, linear flanks, flat tip
-  const trap = (a, T, root, tip) => {
-    const u = ((a * T) / TAU) % 1;
-    if (u < 0.25 || u >= 0.75) return root;
-    if (u < 0.375) return root + ((u - 0.25) / 0.125) * (tip - root);
-    if (u < 0.625) return tip;
-    return tip + ((u - 0.625) / 0.125) * (root - tip);
-  };
-  const rOut = (a) => (To >= 3 ? trap(a, To, 1 - dp, 1) : 1);
-  const rIn = (a) => (Ti >= 3 ? trap(a, Ti, ri, ri - dp) : ri);
-  // angle stations: union of both rims' breakpoints (plain circle if both flat)
-  const set = new Set();
-  for (const T of [To, Ti])
-    if (T >= 3)
-      for (let i = 0; i < T; i++)
-        for (const u of [0, 0.25, 0.375, 0.625, 0.75]) set.add((i + u) / T);
-  if (!set.size) for (let i = 0; i < 24; i++) set.add(i / 24);
-  const ang = [...set].sort((a, b) => a - b).map((f) => f * TAU);
-  // wall strip along one rim segment; out=false flips the normal for the hole
-  const wall = (p0, p1, out) => {
-    const ex = p1[0] - p0[0], ez = p1[1] - p0[1], l = Math.hypot(ex, ez);
-    if (l < 1e-9) return;
-    const f = out ? 1 : -1;
-    const n = [(f * ez) / l, 0, (-f * ex) / l];
-    const b0 = [p0[0], 0, p0[1]], b1 = [p1[0], 0, p1[1]];
-    const t0 = [p0[0], 1, p0[1]], t1 = [p1[0], 1, p1[1]];
-    if (out) quad(g, b0, t0, t1, b1, n);
-    else quad(g, b0, b1, t1, t0, n);
-  };
-  const P = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
-  for (let j = 0; j < ang.length; j++) {
-    const a0 = ang[j], a1 = ang[(j + 1) % ang.length];
-    const o0 = P(rOut(a0), a0), o1 = P(rOut(a1), a1);
-    const i0 = P(rIn(a0), a0), i1 = P(rIn(a1), a1);
-    wall(o0, o1, true);
-    wall(i0, i1, false);
-    quad(g, [i0[0], 1, i0[1]], [i1[0], 1, i1[1]], [o1[0], 1, o1[1]], [o0[0], 1, o0[1]], [0, 1, 0]);   // top ring
-    quad(g, [o0[0], 0, o0[1]], [o1[0], 0, o1[1]], [i1[0], 0, i1[1]], [i0[0], 0, i0[1]], [0, -1, 0]);  // bottom ring
-  }
-  return g;
-}
-
-// unit stamper: 1x1x1 box (y -1..0) + cylinder on top, height cp (= FRACTION
-// of the box height). fit "in" -> r=0.5 inscribed, "out" -> r=sqrt(2)/2.
-function genBoxCylinder(cp, fit, seg) {
-  const r = fit === "out" ? Math.SQRT2 / 2 : 0.5;
-  const b = soupTranslate(genBox(0, 0), 0, -0.5, 0);
-  const c = cylBody(r, cp, seg, 0, TAU);
-  return merge(b, c);
-}
-
 // slope = FRACTION of height dropped at the top's front edge (0..1); curve
 // -1 concave .. +1 convex, only acts on the slope.
 export function box(w = 1, h = 1, d = 1, slope = 0, curve = 0) {
@@ -410,22 +333,4 @@ export function halfCylinderBox(r = 0.5, h = 1, depth = 0.5, seg = 12) {
 
 export function quarterCylinder(r = 0.5, h = 0.3, seg = 8) {
   return H(`qCyl:${seg}`, () => genQuarterCylinder(seg), r, h, r);
-}
-
-// gear ring — teethOut / teethIn put teeth on the outer / inner rim; a count
-// under 3 leaves that side flat (0,0 = plain ring). Tooth depth and hole
-// radius are FIXED fractions of r (standardized teeth, lego-style), so the
-// key is JUST the two counts: gears with identical teeth counts and sides
-// share one mesh and draw as one instanced call. r/h are free scale axes.
-export function gear(r = 0.5, h = 0.2, teethOut = 12, teethIn = 0) {
-  const q = (t) => { const n = Math.round(t); return n >= 3 ? n : 0; };
-  const To = q(teethOut), Ti = q(teethIn);
-  return H(`gear:${To}:${Ti}`, () => genGear(To, Ti), r, h, r);
-}
-
-// stamper — cylH = FRACTION of boxH; w/boxH/d are free scale axes (the
-// cylinder radius follows the footprint, so w != d stretches it with the box)
-export function boxCylinder(w = 1, boxH = 0.5, d = 1, cylH = 0.8, fit = "in", seg = 24) {
-  const cp = q4(Math.max(0.01, cylH));
-  return H(`stamper:${cp}:${fit}:${seg}`, () => genBoxCylinder(cp, fit, seg), w, boxH, d);
 }
