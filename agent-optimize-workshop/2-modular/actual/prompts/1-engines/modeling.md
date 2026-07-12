@@ -1,56 +1,75 @@
-# modeling engine — procedural primitives
+# modeling engine — solids you compose by their faces
 
-Scope: generate shapes. Primitives only. No joints. No color.
+Scope: generate solids, and place them against each other. No joints. No color.
 
-## Contract
+## Two builders — every solid is one of these
 
-- Each primitive call returns one mesh handle. Composing transforms (translate,
-  rotate) move a handle rigidly — no vertex work after the call.
-- Shape set by RATIOS; size is pure scale. Two handles of the same proportions
-  (any size) share one unit mesh, so they batch.
-- Each handle carries a stable IDENTITY = proportions + size. Equal identity →
-  equal handle, so a consumer colors identical pieces alike.
-- Every primitive has one fixed, documented default ORIGIN a consumer seats it by.
-- Every mesh is a CLOSED surface with OUTWARD normals: every face wound so its
-  normal points OUT of the solid, so a front-face-culling material shows it and
-  lighting reads right. No inward-facing or missing faces. Test each primitive:
-  every face normal points away from the shape's interior.
+- **`extrude(outline, depth)`** — a closed 2-D polygon pushed along an axis.
+- **`lathe(outline, arc)`** — a closed 2-D profile revolved around +Y.
 
-## Primitives
+An outline is a CLOSED loop wound counter-clockwise in its plane; an edge's outward
+normal is its direction turned −90°; a point may be flagged *smooth* (its two edges
+average, so arcs shade round while rims stay crisp); it must be star-shaped about its
+centroid (caps are fanned from it).
 
-| shape | params | origin |
-|---|---|---|
-| box | w, h, d, slope, curve | center |
-| cylinder | r, h, seg | base-circle center, grows +Y |
-| coneCut | r0 (base), r1 (top), h, seg | base center, +Y |
-| sphere | r, seg, rings | center |
-| cutDome | r, wall, cut, seg, rings | base-rim (equator) center = sphere center; dome +Y with a top hole |
-| halfCylinder | r, h, seg | base half-circle center, round side +Z, flat on XY, +Y |
-| archBox | r, h, depth, seg | cylinder-circle center |
+A closed outline swept is a closed solid — caps and rims close themselves, every face
+comes out wound outward. Nothing else may emit triangles. Repair the winding at
+generation (flip a triangle whose winding disagrees with its own outward normal), so
+an inside-out or hollow mesh is not expressible rather than merely discouraged.
 
-Notes:
-- **box** — `slope` = fraction of height dropped at the top front (+Z) edge;
-  `curve` bends that sloped top (−1 concave .. +1 convex).
-- **coneCut** — `r1=0` gives a true cone.
-- **cutDome** — the ball SOCKET: take a DOME (the upper half of a sphere) and slice
-  the top pole off. Keep the TOP part: base rim (widest circle, full radius) at the
-  origin plane (the equator, = the sphere center), wall curving up and inward toward
-  +Y, top sliced into a small round HOLE at +Y (the shaft exit). So it caps a ball
-  from above — the ball nests up under the dome, its top cap + shaft poke out the top
-  hole, and the wide skirt at the equator is the ball's entry. Double-walled shell
-  (outer + inner surface, inner facing the cavity) with BOTH cut edges closed by rings
-  (bottom skirt rim + top hole rim). `wall` = shell thickness, `cut` = fraction of the
-  top removed = the hole size — both FRACTIONS of r. All surfaces normalled outward.
-- **archBox** — a half cylinder plus a box body reaching back to `depth`.
+## Three cores
 
-Ratios (slope, curve, taper, wall, cut, arch depth, segment counts) fix the unit
-mesh; w/h/d/r/len stay pure scale.
+| solid | params |
+|---|---|
+| box | w, h, d, `slope` (drops the top's +Z edge), `curve` (bends that slope, −1 concave .. +1 convex) |
+| cylinder | r, h, `axis` (the barrel's axis) |
+| halfCylinder | r, h, `axis`, `round` (which way the curved side bulges) |
+
+**Origin: every solid is centred on its own bounding box.** One rule, so no caller
+does half-height arithmetic.
+
+A call returns a HANDLE: a shared unit mesh (one per distinct proportions, so
+instances batch), a rigid transform, a scale. Proportions (slope, curve, arc, segment
+counts) fix the unit mesh; w/h/d/r stay pure scale. Its stable IDENTITY = proportions
++ size, so a consumer colours identical pieces alike.
+
+## Faces and sections
+
+A **face** is a named frame on a solid: `{ pos, n, u, v, sec }`, `u × v = n`. A box has
+`top/bottom/left/right/front/back`; a barrel has its two caps plus a `side` boss swung
+round the axis by an angle. A caller NAMES a face — never a position, never a normal —
+so a frame cannot drift from the geometry that owns it.
+
+A face's **section** is the cross-section cutting there: `rect(w,d)`, `disc(r)`,
+`halfDisc(r)`. Expose `inradius(sec)` (its largest contained circle) and
+`plate(sec, t)` (a slab of that shape). The joint engine sizes its hardware from
+sections, so a joint's plate is exactly the face it lands on.
+
+**`seat(faceA, faceB, gap)`** — the rigid transform laying B flat on A: origins
+coincide, `u` axes align, normals OPPOSE. Every placement in the system is this call.
+
+## Parts
+
+Pieces plus faces. A part never writes a coordinate.
+
+- `piece(mesh)` — a free-standing solid.
+- `join(host, hostFace, mesh, meshFace, { gap, u, v, flush })` — seat a piece on a face.
+  `u`/`v` slide it across that face in fractions of its half-extents; `flush` re-aligns
+  a named side of both (a foot's sole stays one plane).
+- `anchor(name, piece, face)` — offer a face to a child. It carries NO dimension: the
+  child's plug sizes the joint.
+- `mount(piece, face, { scale, round })` — the face this part plugs into its parent by.
+  `scale` shrinks the plug; `round` makes it a disc.
+- `finish()` — re-base so the mount face is the origin, its normal +Y, the body hanging
+  −Y. Preserve FORWARD: turn the mount normal onto +Y and leave +Z pointing +Z.
+  (Aligning the face's `u` instead spins a drum-shaped part sideways.) Returns the
+  part's meshes, its anchors, and its plug section.
 
 ## Demo page
 
-When your engine is done, wire it into the shared engine demo page (create it if it
-does not exist yet). The page: an orbit viewer, a tab bar grouped by subject kind,
-a slider panel that rebuilds per subject.
+Wire into the shared engine demo page (create it if absent): orbit viewer, tab bar
+grouped by subject kind, a slider panel that rebuilds per subject. Do not break
+another engine's tabs.
 
-Your part: a **shapes** tab group — one tab per primitive; its sliders are the
-primitive's own params; a marker at the origin overlaid.
+Yours: a **shapes** tab group — one tab per core, sliders = its params, origin marked,
+faces overlaid with their frames.

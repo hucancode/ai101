@@ -201,6 +201,16 @@ export const translate = (g, x, y, z) => (g.matrix.premultiply(_tf.makeTranslati
 export const rotX = (g, r) => (g.matrix.premultiply(_tf.makeRotationX(r)), g);
 export const rotY = (g, r) => (g.matrix.premultiply(_tf.makeRotationY(r)), g);
 export const rotZ = (g, r) => (g.matrix.premultiply(_tf.makeRotationZ(r)), g);
+export const applyM = (g, m) => (g.matrix.premultiply(m), g);
+
+// a Group carrying a rigid matrix (the static rest of a bone); its child stays free
+// to be posed
+export function frameNode(parent, m) {
+  const n = new THREE.Group();
+  m.decompose(n.position, n.quaternion, n.scale);
+  if (parent) parent.add(n);
+  return n;
+}
 
 // GPU geometry built once per source unit-mesh OBJECT: every mesh instance sharing
 // one unit mesh (same `key`) shares one buffer. The modeling engine calls this to

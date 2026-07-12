@@ -1,102 +1,107 @@
-# joint engine — mechanisms + mating
+# joint engine — mechanisms, and the seating rule
 
-Scope: two joint mechanisms and the mating that seats one part on another.
-Generate NO geometry. Caller supplies the piece meshes. This engine owns their
-DIMENSIONS and ROTATING ORIGIN — where each piece sits, how it turns. Math only.
+Scope: the mechanisms joining two parts, and the rule seating one on the other. Built
+on the modeling engine's solids. Ratios and math — no tuning table anywhere.
 
-## Two mechanisms
+## One input
 
-- **hinge** — 1 pin, 1 rotation axis. Pin axis through the origin.
-- **ball** — a socket, 3 rotation axes. Ball center at the origin.
+A joint is handed exactly ONE thing: the **section of the child's plug** — the
+cross-section of the face the child hangs by.
 
-## Four pieces (caller supplies mesh, engine defines shape + size)
+    R = inradius(section)    W = the section across the pin    K = half the section across the swing
 
-Each piece has a fixed shape the caller must honor; the engine passes the dims and
-seats it:
+No `size`, no `slim`, no per-joint dimension. A joint therefore cannot be fatter than
+the limb it sits in, and its two halves cannot disagree. Both base plates ARE the
+section, so a plate lands on its face exactly: never proud, never sunk.
 
-| piece | shape | used by |
-|---|---|---|
-| arm / tongue | a D-plate — rounded knuckle + flat body (arch-box) | hinge: female = two arms, male = one wider tongue |
-| pin | a rod (cylinder) on the hinge axis | hinge |
-| socket | a cut-dome CAP (upper-dome shell, top pole sliced for a shaft hole) — NOT a bare sphere, NOT a full sphere | ball female |
-| ball + shaft | a sphere on a rod | ball male |
+## The ratio tables — the entire tuning surface
 
-Base plates (a box or a disc) are generic, not joint-shaped — caller supplies them
-too; the engine places them under either half.
+**hinge** (and each stage of a universal)
 
-**Ball sizing (the two halves must match).** The socket and the ball are built from
-ONE radius. The socket's INNER radius is the ball radius plus a SMALL clearance — the
-ball NESTS inside the dome, the two surfaces must NOT be coincident (equal radii
-z-fight and read as broken). The socket wall sits OUTSIDE the inner radius. The socket
-is a cut-DOME CAP: the UPPER half of a sphere over the ball, with the top pole sliced
-into a small HOLE at +Y. The hole is SMALLER than the ball (so the ball is captured)
-but bigger than the shaft (so the shaft exits). The dome's wide skirt at the equator
-is where the ball enters; the ball's top cap + shaft poke out the top hole. Both cut
-edges (the equator skirt rim and the top hole rim) are closed by visible rings, wound
-outward — never a hollow open edge. A ball that rattles in an over-wide socket, a
-socket smaller than its ball, a ball flush with the wall, a full/near-full sphere, or
-a hollow cut edge, is all wrong.
+| piece | dimension |
+|---|---|
+| clevis arm (×2) | `0.22 W` thick |
+| clearance, each side | `0.03 W` → tongue = `0.50 W`; the three stack to exactly W |
+| tongue | the SAME solid as an arm, at tongue thickness |
+| knuckle radius | `K` — inside the limb's silhouette |
+| body (knuckle centre → plate face) | `0.50 K` |
+| pin radius / protrusion | `0.30 min(K, W/2)` / `0.05 R` past each arm |
+| base plate | `0.25 R` thick |
 
-## Frames + rest orientation (get this right — inversions are the classic bug)
+**ball**
 
-Convention: a half's BODY/base reaches −Y toward the part it belongs to; its mount
-face looks along that reach. The joint origin is the rotation center (pin axis / ball
-center) at [0,0,0].
+| piece | dimension |
+|---|---|
+| ball | `0.70 R` |
+| socket inner | `1.04 ×` ball — it NESTS; the surfaces are not coincident |
+| socket wall | `0.28 ×` inner → outer `= 0.93 R`, inside the limb |
+| shaft hole | `0.55 ×` ball — smaller, so the ball is captured |
+| shaft | `0.35 ×` ball — smaller than the hole, so it exits |
+| ball centre → plate face | `1.05 ×` ball — clears it |
+| male plate over the socket rim | `0.25 R` |
 
-Canonical piece frame the maker returns (engine re-orients from here):
-- **arm / tongue** — rounded knuckle centered at the ORIGIN, flat body reaching −Y,
-  thickness along Z; the pin-hole axis runs along X through the knuckle.
-- **pin** — rod centered at the origin along the pin axis (X).
-- **socket** — a cut-DOME CAP whose inner radius ≈ the ball radius, centered so the
-  ball center is the ORIGIN; the dome covers the ball's +Y (upper) half, its skirt rim
-  at the equator, and the top pole sliced into a small HOLE at +Y that the shaft exits
-  (dome over the top, hole up — NOT wrapping the −Y half, NOT a full sphere).
-- **ball + shaft** — sphere (radius = the socket's inner radius) centered at the ORIGIN,
-  shaft reaching +Y out through the socket mouth toward the child.
+Assert: `hole < ball < inner < outer ≤ R`; `shaft < hole`; `drop > ball`;
+`tongue + 2·clearance + 2·arm = W`. These asserts replace every sentence a spec would
+otherwise spend begging for a fit.
 
-Assembled rest (angle 0): female (fixed) half's base sits on the −Y side; male
-(moving) half reaches +Y, i.e. OPPOSITE the female, so a plain joint chains straight
-through the origin. Male tongue is NOT upside down; socket is NOT inverted. Female
-mount normal points −Y, male mount normal +Y; `mate` opposes them so a child's male
-mount seats flush on the parent's female slot. The L-seated hinge re-seats the male
-90° so parent and child chain around a corner.
+## Two shapes
 
-## Contract
+- **D-plate** — knuckle at the origin, body reaching −Y, thickness along X: one
+  extruded outline (half-circle + rectangle). The female arm and the male tongue are
+  THE SAME SOLID at two thicknesses, so a clevis and its tongue cannot mismatch.
+- **socket** — ONE closed lathe profile, traversed once: out along the skirt rim, up
+  the outer dome, in across the top hole rim, back down the inner dome. Revolved, that
+  IS a double-walled cup, both cut edges capped, every normal outward. Do not hand-roll
+  a sphere band; do not make a full sphere.
 
-- A factory binds the caller's piece makers, then returns the joint builders.
-  A maker takes the dims the engine hands it and returns one mesh.
-- Per mechanism, a builder emits the two compatible HALVES — female (fixed) and
-  male (moving) — plus a base. Every dimension is a pure function of `(size, slim)`.
-  Tuned small + slim so it reads as HARDWARE, not a limb. Keep the REACH compact:
-  a short hinge arm/tongue body and a short ball shaft — the joint is a knuckle a
-  limb chains through, it must NOT take up limb-length space (reach on the order of
-  the knuckle/ball radius, not multiples of it).
-- **Mount offsets** — expose named distances (`hingeMounts` / `ballMounts`: reach,
-  disc radius, bridge, clearance, stack height / top, seat) so a caller lays parts
-  around a joint WITHOUT touching raw dims.
-- **Mating** — a slot is a frame `{ pos, normal, forward }`. `mate(parent, child)`
-  SOLVES the rest rotation that seats the child slot on the parent's: origins
-  coincide, forwards align, normals OPPOSE. Link tables stay pure data.
-- **Composed joint** — build a named joint's two halves + bases under a static
-  pose: `ball` = 3-DOF (rx/ry/rz); `hinge` = L-seated (faces angled 90° so a limb
-  chains through the corner). Plus split helpers: a male ball alone, a female
-  socket seated at a point, a plain hinge split across parent (female clevis + pin)
-  and child (male tongue).
+Everything else (pin, ball, shaft, plates) is a cylinder, a sphere, or `plate(sec)`.
+
+## The seating rule — the whole of it
+
+Given the parent's ANCHOR face, the child's plug SECTION, and where the limb should AIM:
+
+    centre = anchor.pos + anchor.n · seat
+    the child's root face lands `reach` beyond the centre, down the child's own −Y
+    the pin ⊥ both the anchor normal and the aim (straight through: the child's own X)
+
+`seat` and `reach` are not numbers anyone types — they are read off the pieces just
+built (`body + plate`, `top + plate`). So the gap between the parent's surface and the
+child's is algebraically zero, and geometry cannot drift from kinematics: they are the
+same expression. Never place a child origin on the anchor point — a joint occupies
+real space.
+
+**Frames.** Two, sharing the rotation centre: **F** (female) with +Y along the anchor
+normal, its pieces hanging −Y onto the parent's face; **C** (child) with +Y = −aim, its
+pieces hanging −Y toward the child. Build both around FORWARD, never around the pin: a
+pin-derived frame twists the whole chain below a corner (an arm hung off a flank would
+carry its elbow's axis round with it). Forward-built frames come out identical on both
+flanks — which is why no geometry is ever mirrored. With no corner, F and C differ by a
+half turn: "normals oppose" falls out instead of being a rule.
+
+**`aim`** is `"along"` or `"against"` — the child's body follows the parent's body (−Y,
+since every part hangs that way) or opposes it. A corner is expressed by aiming, never
+by a re-seat rotation. A caller cannot get the sign of a word wrong.
+
+## Mechanisms
+
+- **hinge** — 1 pin. `collar: true` adds a spin about the anchor normal (a shoulder
+  turning in a seat plate the parent holds).
+- **ball** — a socket, 3 axes. No corner: its aim must follow the normal.
+- **universal** — two hinges at right angles; the second's clevis hangs off the first's
+  tongue plate and they SHARE it. Optional twist collar under it. One joint to the
+  caller, three bones to the rig.
+
+`build(kind, anchor, section, opts)` returns: the BONES (each with a name, a local
+axis, a SIGN, and its static rest), the hardware ALREADY PLACED in the frame it belongs
+to (female in the parent's space, male on its bone), and the child's offset. A rig then
+computes no position and no rotation of its own.
+
+The bone's SIGN is how one channel drives both flanks: a mirrored face gives a mirrored
+pin, so the motion comes out symmetric with no sign table anywhere.
 
 ## Demo page
 
-When your engine is done, wire it into the shared engine demo page (create it if it
-does not exist yet). The page: an orbit viewer, a tab bar grouped by subject kind,
-a slider panel that rebuilds per subject.
-
-Your part: a **joints** tab group — one tab per mechanism; its sliders drive the
-moving half in degrees while the fixed half holds; overlay each joint's mount frames
-with the male and female mounts marked apart. Supply the demo's own piece meshes in
-the canonical frames above. Build the socket as a real cut-DOME CAP — take the UPPER
-half of a sphere over the ball and slice the top pole into a small hole. Double-walled
-(outer + inner surface, inner normals facing the cavity), with BOTH cut edges closed
-by rings: the equator skirt (−Y) and the top shaft hole (+Y). The top hole is smaller
-than the ball (captures it) but clears the shaft. Wind every surface outward (it
-renders single-sided). Do NOT hand-roll a bare sphere band (inside-out / hollow), and
-do NOT make a full/near-full sphere. The ball nests with a little clearance; its top
-cap + shaft poke out the top hole.
+Wire into the shared engine demo page. Yours: a **joints** tab group — one tab per
+mechanism. Sliders drive the moving half in degrees while the fixed half holds; a
+slider for the PLUG's section shows all the hardware resizing with the limb. Overlay
+the anchor face, the rotation centre, and the seat/reach spans.
