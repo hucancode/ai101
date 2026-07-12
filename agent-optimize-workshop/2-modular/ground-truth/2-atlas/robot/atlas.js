@@ -54,16 +54,22 @@ const CURL = [
   { in: [60, 90], out: [0, 25] },    // tip:     closes the fist
 ];
 
+// a heavier disc base than the house one, for the joints that want it (see the elbow)
+const FAT = { t: 3.4 };
+
 // one flank. `s` = +1 left, -1 right — it selects the parent's face, nothing else.
 // No geometry is mirrored and no drive sign is flipped by hand.
 const side = (S, s) => [
   // the shoulder is a hinge that also SPINS in its seat (collar): the spin swings the
   // arm fore-and-aft, the pin lifts it out. It hangs off the flank, aiming down.
   { name: `arm${S}`, part: "upperArm", parent: "torso", at: `shoulder${S}`,
-    joint: "hinge", collar: true, aim: "against", side: s,
+    joint: "hinge", collar: true, aim: "against", side: s, base: "disc",
     drive: { collar: ["shoulder", "flip"], pin: ["armOut"] } },
+  // the elbow and the knee wear a FATTER hub than the house disc the shoulder and hip
+  // take: they are the joints a limb bends hardest through, and the deeper plate is what
+  // reads as a machined bearing rather than a seam. It is still a ratio, not a size.
   { name: `fore${S}`, part: "forearm", parent: `arm${S}`, at: "elbow",
-    joint: "hinge", side: s, drive: { pin: ["elbow"] } },
+    joint: "hinge", side: s, base: FAT, drive: { pin: ["elbow"] } },
   // the wrist is ONE joint to the rig: a universal — two pins at right angles plus a
   // twist collar. The engine stacks the stages; the palm just plugs into it.
   { name: `palm${S}`, part: "palm", parent: `fore${S}`, at: "wrist",
@@ -83,10 +89,10 @@ const side = (S, s) => [
     drive: { pin: ["curl", CURL[j]] },
   }))),
   { name: `leg${S}`, part: "thigh", parent: "pelvis", at: `hip${S}`,
-    joint: "hinge", collar: true, aim: "along", side: s,
+    joint: "hinge", collar: true, aim: "along", side: s, base: "disc",
     drive: { collar: ["hip", "flip"] } },
   { name: `shin${S}`, part: "shin", parent: `leg${S}`, at: "knee",
-    joint: "hinge", side: s, drive: { pin: ["knee"] } },
+    joint: "hinge", side: s, base: FAT, drive: { pin: ["knee"] } },
   { name: `foot${S}`, part: "foot", parent: `shin${S}`, at: "ankle", joint: "hinge", side: s },
 ];
 
@@ -127,7 +133,8 @@ function assemble(kit, links, { basePose = {}, colorFn }) {
 
     const anchor = parts[d.parent].anchors[d.at];
     if (!anchor) throw Error(`${d.name}: ${d.parent} offers no face "${d.at}"`);
-    const j = buildJoint(d.joint, anchor, part.root, { collar: d.collar, aim: d.aim, roll: d.roll });
+    const j = buildJoint(d.joint, anchor, part.root,
+      { collar: d.collar, aim: d.aim, roll: d.roll, base: d.base });
 
     hang(node[d.parent], j.fixed);                                  // the female half
     let host = node[d.parent];

@@ -13,28 +13,36 @@
 // lands on them.
 import { createPart, box, cylinder, halfCylinder } from "../engines/modeling.js";
 
+// The figure these numbers cut is the same one the sequential workshop builds: 5.26
+// tall, soles on the grid, with the knee, hip, waist, shoulder, elbow, palm and head
+// landing at the same heights. Only the sizes live here — the joints between them are
+// still the engine's, grown from each child's plug, so the hardware is a little
+// trimmer than the hand-authored clevises there.
 export const ATLAS_PARAMS = {
-  head: { r: 0.28, depth: 0.56, ring: 0.06, innerR: 0.22, ear: 0.09 },
-  torso: { chestW: 1.15, chestH: 1.14, chestD: 0.68, panel: 0.06 },
-  pelvis: { hipW: 0.86, discT: 0.2, crotchR: 0.4, crotchT: 0.34, hubR: 0.18, hubT: 0.07 },
-  upperArm: { r: 0.15, len: 0.49 },
-  forearm: { w: 0.26, len: 0.56, d: 0.234 },
-  palm: { w: 0.26, h: 0.24, d: 0.22 },
-  digit: { w: 0.055, len: 0.07 },
-  thigh: { w: 0.38, len: 1.07, d: 0.42, plug: 0.95 },
-  shin: { r: 0.16, len: 1.08, kneeR: 0.19, ankleR: 0.14, plate: 0.06 },
-  foot: { w: 0.32, h: 0.2, ankleD: 0.24, toeD: 0.4, heelD: 0.18, plug: 1 },
+  head: { r: 0.28, depth: 0.56, ring: 0.06, innerR: 0.22, ear: 0.09, neckR: 0.14, neckT: 0.059 },
+  torso: { chestW: 1.15, chestH: 1.012, chestD: 0.68, panel: 0.06, shoulderV: 0.458 },
+  pelvis: { hipW: 0.86, discT: 0.2, crotchR: 0.4, crotchT: 0.35, hubR: 0.18, hubT: 0.07 },
+  upperArm: { r: 0.15, len: 0.513 },
+  forearm: { w: 0.26, len: 0.802, d: 0.234 },
+  palm: { w: 0.26, h: 0.26, d: 0.24 },
+  digit: { w: 0.1, len: 0.085 },
+  thigh: { w: 0.38, len: 0.657, d: 0.42, plug: 0.95 },
+  shin: { r: 0.16, len: 0.819, kneeR: 0.19, ankleR: 0.14, plate: 0.06 },
+  foot: { w: 0.32, h: 0.2, ankleD: 0.24, toeD: 0.5, heelD: 0.28, plug: 1 },
 };
 
 // HEAD — a drum lying on its side (face = the flat disc), rings proud of the face,
-// ear pods on the barrel. It hangs off a boss under the drum: side face, pointing -Y.
+// ear pods on the barrel. A short NECK BOSS hangs under the drum, and the head plugs
+// into the torso by the boss's underside — so the neck ball is sized by the boss, not
+// by the drum, and the drum rides clear of the chest instead of sitting on it.
 function head(P, p) {
   const drum = P.piece(cylinder(p.r, p.depth, { axis: "z" }));
   const ring = P.join(drum, "front", cylinder(p.r + 0.03, p.ring, { axis: "z" }), "back");
   P.join(ring, "front", cylinder(p.innerR, 0.05, { axis: "z" }), "back");
   P.join(drum, "side", cylinder(p.ear, 0.06, { axis: "x" }), "left", { a: 90 });
   P.join(drum, "side", cylinder(p.ear, 0.06, { axis: "x" }), "right", { a: 270 });
-  P.mount(drum, "side", { a: 180 });                  // the neck boss, under the drum
+  const neck = P.join(drum, "side", cylinder(p.neckR, p.neckT, { axis: "y" }), "top", { a: 180 });
+  P.mount(neck, "bottom");                            // the neck boss, under the drum
 }
 
 // TORSO — a slab chest: a core box with a rounded half-cylinder flank on each side
@@ -47,8 +55,8 @@ function torso(P, p) {
   const fr = P.join(chest, "right", halfCylinder(r, p.chestH, { axis: "y", round: "+x" }), "flat");
   P.join(chest, "front", box((p.chestW - p.chestD) * 0.85, p.chestH * 0.72, p.panel), "back", { v: 0.1 });
   P.anchor("neck", chest, "top");
-  P.anchor("shoulderL", fl, "round", { v: 0.55 });
-  P.anchor("shoulderR", fr, "round", { v: 0.55 });
+  P.anchor("shoulderL", fl, "round", { v: p.shoulderV });
+  P.anchor("shoulderR", fr, "round", { v: p.shoulderV });
   P.mount(chest, "bottom", { scale: 0.85 });          // the waist plug — a broad shaft
 }
 

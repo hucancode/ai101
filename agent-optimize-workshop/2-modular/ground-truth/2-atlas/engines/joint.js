@@ -41,6 +41,8 @@ export const FIT = {
   BODY: 0.50,       // knuckle centre -> plate face      / K
   PIN: 0.30,        // pin radius                        / min(K, W/2)
   PROUD: 0.05,      // pin protrusion past each arm      / R
+  DISC: 1.2,       // the disc base's radius            / the clevis's circumradius
+  DISC_T: 1.5,      // the disc base's thickness         / a plain plate's
   // ball
   BALL: 0.70,       // ball radius                       / R
   BALL_CLR: 0.04,   // socket inner over the ball        / ball
@@ -51,11 +53,24 @@ export const FIT = {
   RIM: 0.25,        // male plate clearance over the rim / R
 };
 
+// `base` — how a joint's plates are cut. Left out, they ARE the child's section, so a
+// plate lands on the face it seats against exactly. Given as "disc", they become the
+// round hub below, on the house ratios. Given as `{ r, t }`, a joint bends those two
+// ratios for itself alone — a shoulder can wear the house disc while a knee wears a
+// fatter one. An override is still a RATIO of the limb, never a size: a rig cannot type
+// a number here that makes a joint disagree with the limb it sits in.
+const discOf = (base) => {
+  if (!base) return null;
+  const o = base === "disc" ? {} : base;
+  return { r: o.r ?? FIT.DISC, t: o.t ?? FIT.DISC_T };
+};
+
 // ---- dimensions ------------------------------------------------------------
 // Both mechanisms, from the section alone. These asserts ARE the old spec's whole
 // "get the ball/socket fit right" section — a fit that can't be got wrong.
-export function dims(kind, sec, { collar = false } = {}) {
+export function dims(kind, sec, { collar = false, base = null } = {}) {
   const R = inradius(sec), plateT = FIT.PLATE * R;
+  const disc = discOf(base);
   if (kind === "ball") {
     const rb = FIT.BALL * R;
     const ri = rb * (1 + FIT.BALL_CLR);
@@ -66,7 +81,7 @@ export function dims(kind, sec, { collar = false } = {}) {
     if (!(shaftR < rh)) throw Error("ball: the shaft must clear the hole");
     if (!(ro <= R)) throw Error("ball: the socket is wider than the limb");
     if (!(drop > rb)) throw Error("ball: the base plate clips the ball");
-    return { R, plateT, rb, ri, ro, rh, shaftR, drop, top, seat: drop + plateT, reach: top + plateT };
+    return { R, plateT, plT: plateT, rb, ri, ro, rh, shaftR, drop, top, seat: drop + plateT, reach: top + plateT };
   }
   // the KNUCKLE is cut inside the plug: the base plate is the plug's full section, the
   // clevis is FIT.WAIST of it, so the plate always stands proud of the arms it carries
@@ -79,16 +94,29 @@ export function dims(kind, sec, { collar = false } = {}) {
   if (Math.abs(tongueT + 2 * armT + 2 * clr - W) > 1e-9) throw Error("hinge: the stack is not the knuckle's width");
   if (!(W < spanU(sec) && 2 * K < spanV(sec))) throw Error("hinge: the clevis overhangs its base plate");
   if (!(pinR < K)) throw Error("hinge: the pin is wider than the knuckle");
+  // WHAT A PLATE IS THICK on this joint. A disc base is a slab, not a shim — and it is
+  // the plate that CARRIES the clevis, so it stacks END TO END with it: the plate runs
+  // from the limb's face down to the knuckle body, and the body starts where the plate
+  // stops. Nothing interleaves. That is why `seat` and `reach` are measured in plT, not
+  // in plateT: thicken the hub and the limb steps back to make room for it, on both the
+  // female and the male end. A hub that grew INTO the clevis instead would put solid
+  // through solid, and the swing would sweep the plate it is bolted to.
+  const plT = disc ? disc.t * plateT : plateT;
   const d = {
-    R, plateT, W, K, armT, clr, tongueT, body, pinR,
+    R, plateT, plT, W, K, armT, clr, tongueT, body, pinR,
+    // the DISC BASE: a round plate on the clevis's CIRCUMRADIUS, so it clears the arms
+    // it carries in every direction, and `r` over that, so it also stands proud of the
+    // limb it bolts to. The joint then reads as a machined hub the limb hangs off,
+    // rather than as the limb pinched at the seam.
+    discR: disc ? (disc.r * Math.hypot(W, 2 * K)) / 2 : 0,
     pinLen: W + 2 * FIT.PROUD * R,
     arm: (tongueT + 2 * clr + armT) / 2,               // arm centre, off the pin's midpoint
-    seat: body + plateT + (collar ? plateT : 0),       // a collar adds the seat plate it spins on
-    reach: body + plateT,
+    seat: body + plT + (collar ? plT : 0),             // a collar adds the seat plate it spins on
+    reach: body + plT,
   };
   if (kind === "universal") {
-    d.stage = 2 * body + plateT;                       // centre A -> centre B (they share a plate)
-    d.reach = d.stage + body + plateT + (collar ? plateT : 0);
+    d.stage = 2 * body + plT;                          // centre A -> centre B (they share a plate)
+    d.reach = d.stage + body + plT + (collar ? plT : 0);
   }
   return d;
 }
@@ -127,8 +155,8 @@ function dplate(K, body, th, seg = 16) {
 // writing a vector — a rig cannot get the sign of a word wrong.
 const AIM = { along: [0, -1, 0], against: [0, 1, 0] };
 
-export function build(kind, anchor, sec, { collar = false, aim = null, roll = 0, seg = 20 } = {}) {
-  const d = dims(kind, sec, { collar });
+export function build(kind, anchor, sec, { collar = false, aim = null, roll = 0, base = null, seg = 20 } = {}) {
+  const d = dims(kind, sec, { collar, base });
   const n = vNorm(anchor.n);
   const dir = vNorm(typeof aim === "string" ? AIM[aim] : (aim ?? n));   // default: straight out
   if (kind === "ball" && 1 - Math.abs(dot(dir, n)) > 1e-6)
@@ -170,9 +198,17 @@ export function build(kind, anchor, sec, { collar = false, aim = null, roll = 0,
   const bone = (name, axis, sign, rest) => bones.push({ name, axis, sign, rest, meshes: [] }) - 1;
   const on = (i, mesh) => bones[i].meshes.push(mesh);
 
-  // the female base plate: it IS the child's section, so it lands on the anchor face
+  // THE PLATE. By default it IS the child's section, so it lands on the anchor face
   // exactly — and its outer face sits ON that face, which is what makes `seat` true.
-  const basePlate = () => translate(plate(sec, d.plateT), 0, -d.seat + d.plateT / 2, 0);
+  // `base: "disc"` swaps it for the disc hub (see dims), proud of both the arms and the
+  // limb. Every plate is seated by its OUTER face and grows INWARD from there, so a
+  // fatter hub eats into the knuckle it carries instead of moving it: `seat` and
+  // `reach` do not know the difference, and the seating holds either way.
+  const disc = discOf(base);
+  const PT = d.plT;                                    // what a plate is thick on this joint
+  const pl = (yOut) => translate(
+    disc ? cylinder(d.discR, PT, { seg }) : plate(sec, PT), 0, yOut + PT / 2, 0);
+  const basePlate = () => pl(-d.seat);
 
   if (kind === "ball") {
     fixed.push(basePlate());
@@ -209,12 +245,12 @@ export function build(kind, anchor, sec, { collar = false, aim = null, roll = 0,
       // the clevis turns bodily in a seat plate the PARENT holds: one extra bone,
       // living in the female frame, spinning about the anchor normal
       host = bone("collar", "y", 1, F);
-      on(host, translate(plate(sec, d.plateT), 0, -d.seat + 1.5 * d.plateT, 0));
+      on(host, pl(-d.seat + PT));                 // the seat plate, riding on the base
     }
     clevis(host < 0 ? (m) => fixed.push(m) : (m) => on(host, m), 0, pinF.axis);
     const p = bone("pin", pinC.axis, pinC.sign, collar ? F2C : C);
     on(p, tongue(0, pinC.axis));
-    on(p, translate(plate(sec, d.plateT), 0, -d.reach + d.plateT / 2, 0));
+    on(p, pl(-d.reach));
     return done(d, F, fixed, bones, [0, -d.reach, 0]);
   }
 
@@ -226,15 +262,15 @@ export function build(kind, anchor, sec, { collar = false, aim = null, roll = 0,
 
   const a = bone("pinA", pinC.axis, pinC.sign, C);
   on(a, tongue(0, pinC.axis));
-  on(a, translate(plate(sec, d.plateT), 0, -(d.body + d.plateT / 2), 0));   // the shared plate
+  on(a, pl(-(d.body + PT)));                                    // the shared plate
   clevis((m) => on(a, m), -d.stage, axB);
 
   const b = bone("pinB", axB, 1, new THREE.Matrix4().makeTranslation(0, -d.stage, 0));
   on(b, tongue(0, axB));
-  on(b, translate(plate(sec, d.plateT), 0, -(d.body + d.plateT / 2), 0));
+  on(b, pl(-(d.body + PT)));
   if (collar) {                                       // the twist: a disc turning on a disc
     const t = bone("twist", "y", 1, null);
-    on(t, translate(plate(sec, d.plateT), 0, -(d.body + 1.5 * d.plateT), 0));
+    on(t, pl(-(d.body + 2 * PT)));
   }
   return done(d, F, fixed, bones, [0, -(d.reach - d.stage), 0]);
 }
