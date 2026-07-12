@@ -13,7 +13,7 @@
 // center / pin axis); the body hangs along -Y, +Z forward — except head and
 // torso, whose bodies grow +Y out of their mount ball.
 import {
-  box, cylinder, coneCut, sphere, cutHemisphere, halfCylinder, halfCylinderBox,
+  box, cylinder, coneCut, sphere, cutDome, halfCylinder, halfCylinderBox,
 } from "../engines/modeling.js";
 import { rad, HPI, rotX, rotY, rotZ, translate } from "../gfx.js";
 import {
@@ -24,7 +24,7 @@ import {
 const ATLAS_MK = {
   arm: (kR, bLen, th) => halfCylinderBox(kR, th, bLen, 16),  // female arm / male tongue D-plate
   pin: (r, len) => cylinder(r, len, 20),
-  socket: (rOut, wall, cut) => cutHemisphere(rOut, wall, cut, 28, 8),
+  socket: (rOut, wall, cut) => cutDome(rOut, wall, cut, 28, 8),
   ball: (r) => sphere(r, 20, 14),
   shaft: (r, len) => cylinder(r, len, 18),
   box: (w, h, d) => box(w, h, d),

@@ -5,7 +5,7 @@ import {
   createViewer, group, attachMesh, clearMeshes, vNorm, vCross, alignY, rad, colorOf, translate, THREE,
 } from "./gfx.js";
 import {
-  box, cylinder, coneCut, sphere, cutHemisphere, halfCylinder, halfCylinderBox,
+  box, cylinder, coneCut, sphere, cutDome, halfCylinder, halfCylinderBox,
 } from "./engines/modeling.js";
 import { createJointKit, hingeReach, ballMounts } from "./engines/joint.js";
 
@@ -13,7 +13,7 @@ import { createJointKit, hingeReach, ballMounts } from "./engines/joint.js";
 const MK = {
   arm: (kR, bLen, th) => halfCylinderBox(kR, th, bLen, 16),
   pin: (r, len) => cylinder(r, len, 20),
-  socket: (rOut, wall, cut) => cutHemisphere(rOut, wall, cut, 28, 8),
+  socket: (rOut, wall, cut) => cutDome(rOut, wall, cut, 28, 8),
   ball: (r) => sphere(r, 20, 14),
   shaft: (r, len) => cylinder(r, len, 18),
   box: (w, h, d) => box(w, h, d),
@@ -83,10 +83,10 @@ const SHAPES = {
     p: [["r", 0.5, 0.1, 1, 0.02], ["seg", 24, 3, 48, 1], ["rings", 16, 2, 32, 1]],
     make: (v) => sphere(v.r, v.seg, v.rings),
   },
-  cutHemisphere: {
+  cutDome: {
     p: [["r", 0.5, 0.1, 1, 0.02], ["t", 0.25, 0.02, 0.95, 0.02], ["cut", 0.7, 0, 0.98, 0.02],
         ["seg", 24, 3, 48, 1], ["rings", 6, 2, 16, 1]],
-    make: (v) => cutHemisphere(v.r, v.t, v.cut, v.seg, v.rings),
+    make: (v) => cutDome(v.r, v.t, v.cut, v.seg, v.rings),
   },
   halfCylinder: {
     p: [["r", 0.5, 0.1, 1, 0.02], ["h", 1, 0.2, 2, 0.05], ["seg", 12, 3, 32, 1]],

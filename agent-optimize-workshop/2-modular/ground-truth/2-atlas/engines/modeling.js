@@ -7,11 +7,11 @@
 // like lego); `userData.key` = the size-free geometry identity.
 //
 // Shape params that survive into the KEY are RATIOS, so scaling w/h/d is pure
-// instance scale (box slope, coneCut taper, cutHemisphere wall/cut, archBox depth,
+// instance scale (box slope, coneCut taper, cutDome wall/cut, archBox depth,
 // segment counts).
 //
 // ORIGINS: cylinder base-circle center, +Y; box center; sphere
-// center; hemisphere base center, dome +Y; halfCyl base half-circle, round +Z,
+// center; cutDome base rim center, dome +Y; halfCyl base half-circle, round +Z,
 // flat on XY, +Y; archBox cylinder-circle center.
 import { TAU, THREE, geometryOf } from "../gfx.js";
 
@@ -141,8 +141,8 @@ function genLathe(seg, rings, phiMax, base) {
   return g;
 }
 
-// unit cut hemisphere: shell r=1, wall t + cut plane = FRACTIONS of r
-function genCutHemisphere(t, cut, seg, rings) {
+// unit cut dome: shell r=1, wall t + cut plane = FRACTIONS of r
+function genCutDome(t, cut, seg, rings) {
   const g = geo();
   const ri = Math.max(0.05, 1 - t);
   const yc = Math.min(cut, ri - 1e-3);
@@ -212,9 +212,9 @@ export function coneCut(r0 = 0.5, r1 = 0.25, h = 1, seg = 24) {
   return H(`coneCut:${q}:${seg}`, () => genConeCut(q, seg), r0, h, r0);
 }
 export const sphere = (r = 0.5, seg = 24, rings = 16) => H(`sph:${seg}:${rings}`, () => genLathe(seg, rings, Math.PI, false), r, r, r);
-export function cutHemisphere(r = 0.5, t = 0.25, cut = 0.7, seg = 24, rings = 6) {
+export function cutDome(r = 0.5, t = 0.25, cut = 0.7, seg = 24, rings = 6) {
   const tp = q4(Math.max(0.02, Math.min(t, 0.95))), cp = q4(Math.max(0, Math.min(cut, 0.98)));
-  return H(`cutHemi:${tp}:${cp}:${seg}:${rings}`, () => genCutHemisphere(tp, cp, seg, rings), r, r, r);
+  return H(`cutDome:${tp}:${cp}:${seg}:${rings}`, () => genCutDome(tp, cp, seg, rings), r, r, r);
 }
 export const halfCylinder = (r = 0.5, h = 1, seg = 12) => H(`halfCyl:${seg}`, () => genHalfCylinder(seg, true), r, h, r);
 export function halfCylinderBox(r = 0.5, h = 1, depth = 0.5, seg = 12) {
