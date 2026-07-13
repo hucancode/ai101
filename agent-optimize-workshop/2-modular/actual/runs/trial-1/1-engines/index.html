@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>engine demo</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font: 13px/1.4 system-ui, sans-serif;
+        color: #dfe3ea;
+        background: #0b0e13;
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        grid-template-rows: auto 1fr;
+        height: 100%;
+      }
+      #tabs {
+        grid-column: 1 / 3;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 10px;
+        background: #11151d;
+        border-bottom: 1px solid #222a36;
+        align-items: center;
+      }
+      #tabs .group { display: flex; gap: 4px; align-items: center; }
+      #tabs .group > .kind {
+        opacity: 0.5;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        margin-right: 2px;
+      }
+      button.tab {
+        background: #1b2230;
+        color: #cdd3dd;
+        border: 1px solid #2a3444;
+        border-radius: 6px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      button.tab.active { background: #2f6fb0; border-color: #3a86d0; color: #fff; }
+      #viewport { position: relative; grid-row: 2; }
+      canvas { width: 100%; height: 100%; display: block; }
+      #panel {
+        grid-row: 2;
+        background: #11151d;
+        border-left: 1px solid #222a36;
+        padding: 12px;
+        overflow-y: auto;
+      }
+      #panel h2 { font-size: 12px; margin: 0 0 8px; opacity: 0.7; font-weight: 600; }
+      .slider { margin-bottom: 8px; }
+      .slider label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        opacity: 0.85;
+        margin-bottom: 2px;
+      }
+      .slider input { width: 100%; }
+      .slider .val { opacity: 0.6; font-variant-numeric: tabular-nums; }
+      #transport { display: flex; gap: 8px; margin: 4px 0 14px; align-items: center; }
+      #playToggle {
+        background: #245c3a;
+        color: #eafff0;
+        border: 1px solid #2f7a4d;
+        border-radius: 6px;
+        padding: 5px 14px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      #playToggle.on { background: #7a2f2f; border-color: #a03d3d; }
+      #transport .period { font-size: 11px; opacity: 0.7; display: flex; gap: 4px; align-items: center; }
+      #transport .period input { width: 80px; }
+      #caption {
+        grid-column: 1 / 3;
+        position: fixed;
+        left: 10px;
+        bottom: 10px;
+        max-width: 55vw;
+        padding: 6px 10px;
+        background: rgba(10, 14, 20, 0.8);
+        border: 1px solid #222a36;
+        border-radius: 6px;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <nav id="tabs"></nav>
+    <div id="viewport"><canvas id="view"></canvas></div>
+    <aside id="panel">
+      <div id="transport">
+        <button id="playToggle">play</button>
+        <span class="period">
+          period
+          <input id="period" type="range" min="0.3" max="3" step="0.05" value="1.1" />
+        </span>
+      </div>
+      <h2 id="panelTitle">no subject</h2>
+      <div id="sliders"></div>
+    </aside>
+    <div id="caption">Pick a subject.</div>
+    <!-- joints tab group (hinge + ball) — registers before main.js loads -->
+    <script type="module" src="./demo.joints.js"></script>
+    <script type="module" src="./main.js"></script>
+    <!-- modeling engine: registers the "shapes" tab group -->
+    <script type="module" src="./demo-shapes.js"></script>
+  </body>
+</html>

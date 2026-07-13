@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>02 — Joints</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #11141a; }
+    #view { width: 100%; height: 100%; display: block; touch-action: none; }
+    #hud {
+      position: fixed; left: 12px; top: 12px; width: 260px;
+      color: #cdd3de; font: 12px/1.5 monospace;
+      background: #1a1f28cc; padding: 12px 14px; border-radius: 8px;
+    }
+    #hud h1 { font-size: 13px; margin: 0 0 8px; color: #fff; }
+    #hud dl { margin: 0; }
+    #hud dt { color: #7dcb2f; margin-top: 8px; }
+    #hud dd { margin: 0 0 0 0; color: #9aa4b5; }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="hud">
+    <h1>Joint catalog — animated gallery</h1>
+    <dl>
+      <dt>hinge1 (1DOF)</dt>
+      <dd>pin U-in-U, one pin thru 4 knuckles — swing</dd>
+      <dt>hinge2 (2DOF)</dt>
+      <dd>two staged hinges, offset pins — rx, rz</dd>
+      <dt>ball1 (3DOF)</dt>
+      <dd>socket cups past the equator — rx, ry, rz</dd>
+    </dl>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

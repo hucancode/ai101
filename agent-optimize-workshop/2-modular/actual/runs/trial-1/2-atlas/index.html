@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>atlas — the robot</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #11141a; }
+    #view { width: 100%; height: 100%; display: block; touch-action: none; }
+    #hud {
+      position: fixed; left: 12px; top: 12px; width: 300px; max-height: calc(100% - 24px);
+      overflow-y: auto; color: #cdd3de; font: 13px monospace;
+      background: #1a1f28cc; padding: 12px; border-radius: 8px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    h1 { font: 14px monospace; margin: 0; letter-spacing: 0.1em; }
+    #caption { opacity: 0.8; line-height: 1.4; }
+    #params { display: flex; flex-direction: column; gap: 6px; }
+    #params label { display: flex; align-items: center; gap: 6px; }
+    #params label.hand { color: #f1c40f; }
+    #params input[type=range] { flex: 1; }
+    #params span { min-width: 4ch; text-align: right; }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="hud">
+    <h1>ATLAS</h1>
+    <div id="caption"></div>
+    <div id="params"></div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

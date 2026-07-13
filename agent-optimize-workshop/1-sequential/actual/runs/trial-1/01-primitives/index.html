@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Primitives — parameter inspector</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #11141a; overflow: hidden; }
+  /* Canvas owns the viewport: fixed, full-bleed, sized from its own box —
+     never a flex sibling of the panel, or render.js's clientWidth-driven
+     resize() would grow it every frame against the panel's fixed width. */
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* Panel floats over the canvas, does not participate in canvas layout. */
+  #panel {
+    position: fixed; top: 12px; left: 12px; width: 260px; max-height: calc(100% - 24px);
+    overflow-y: auto; padding: 12px 14px; box-sizing: border-box;
+    background: rgba(20, 23, 30, 0.88); border: 1px solid #2b3040; border-radius: 8px;
+    color: #dfe3ea; font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+    backdrop-filter: blur(4px);
+  }
+  #panel h1 { font-size: 13px; margin: 0 0 10px; color: #8fa3ff; letter-spacing: 0.02em; }
+  #panel select, #panel button {
+    width: 100%; background: #1b1f2a; color: #dfe3ea; border: 1px solid #333850;
+    border-radius: 4px; padding: 5px 6px; font: inherit; margin-bottom: 8px;
+  }
+  #panel button { cursor: pointer; }
+  #panel button:hover { border-color: #5566aa; }
+  .row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+  .row .tag { width: 44px; color: #9aa3b8; flex: none; }
+  .row input[type="range"] { flex: 1 1 auto; min-width: 0; }
+  .row .val { width: 48px; text-align: right; flex: none; color: #cfd6e6; }
+  .readout { margin-top: 10px; border-top: 1px solid #2b3040; padding-top: 8px; }
+  .readout div { overflow-wrap: anywhere; margin-bottom: 4px; }
+  .readout .label { color: #6b7590; }
+  .readout .value { color: #b6e3a8; }
+</style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="panel">
+    <h1>PRIMITIVES INSPECTOR</h1>
+    <select id="builder"></select>
+    <div id="sliders"></div>
+    <button id="reseed">reseed colors</button>
+    <div class="readout">
+      <div><span class="label">key: </span><span class="value" id="keyOut"></span></div>
+      <div><span class="label">id: </span><span class="value" id="idOut"></span></div>
+    </div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
